@@ -40,7 +40,9 @@ Add **mcp-openapi-proxy** to your MCP ecosystem by configuring your `mcpServers`
                 "mcp-openapi-proxy"
             ],
             "env": {
-                "OPENAPI_SPEC_URL": "${OPENAPI_SPEC_URL}"
+                "OPENAPI_SPEC_URL": "${OPENAPI_SPEC_URL}",
+                "TOOL_WHITELIST": "VERBA_",
+                "TOOL_NAME_PREFIX": "api"
             }
         }
     }
@@ -67,22 +69,100 @@ Add **mcp-openapi-proxy** to your MCP ecosystem by configuring your `mcpServers`
 - `MCP_API_PREFIX`: Prefix for the generated MCP tool names (default: `any_openapi`).
 - `MCP_OPENAPI_LOGFILE_PATH`: Path for the log file.
 - `OPENAPI_SIMPLE_MODE`: Set to `true` for FastMCP mode.
+- `TOOL_WHITELIST`: (Optional) A prefix filter to select only certain tools.
+- `TOOL_NAME_PREFIX`: (Optional) A string to prepend to all tool names when mapping.
 
-## Filtering OpenAPI Endpoints
+## Examples
 
-(If implemented, describe your available filtering options here, such as `OPENAPI_TAG_WHITELIST` or `OPENAPI_PATH_BLACKLIST`.)
+Below is an example demonstrating how to use the Verba endpoint for tool discovery and mapping:
 
-## Security
+### 1. Discovering the Endpoint
 
-- **OpenAPI Access:** Ensure that the OpenAPI URL and any API keys are kept secure.
-- **Configuration:** Use environment variables or `.env` files for sensitive configuration.
+Running the following command:
+
+```bash
+curl http://localhost:8080/v1/verba
+```
+
+might return a response similar to:
+
+```json
+{
+  "classes": [
+    {
+      "class": "VERBA_Example_Class",
+      "description": "Example description",
+      "otherField": "value"
+    },
+    {
+      "class": "VERBA_Sample",
+      "description": "Another example",
+      "otherField": "value"
+    }
+  ]
+}
+```
+
+### 2. Configuring mcp-openapi-proxy
+
+Using the MCP ecosystem configuration, you can instruct mcp-openapi-proxy to fetch the above endpoint, filter for classes starting with `VERBA_`, and prepend a prefix to tool names. For example:
+
+```json
+{
+    "mcpServers": {
+        "mcp-openapi-proxy": {
+            "command": "uvx",
+            "args": [
+                "--from",
+                "git+https://github.com/matthewhand/mcp-openapi-proxy",
+                "mcp-openapi-proxy"
+            ],
+            "env": {
+                "OPENAPI_SPEC_URL": "http://localhost:8080/v1/verba",
+                "TOOL_BLACKLIST": "delete_document,reset"
+            }
+        }
+    }
+}
+```
+
+### 3. Resulting Tools
+
+With the above settings, the server will map the discovered classes to MCP tools. The resulting tools might look like:
+
+```json
+[
+    {
+        "name": "api_query",
+        "description": "Tool for /api/query: ..."
+    },
+    {
+        "name": "api_get_document",
+        "description": "Tool for /api/get_document: ..."
+    },
+    {
+        "name": "api_get_content",
+        "description": "Tool for /api/get_content: ..."
+    },
+    {
+        "name": "api_get_meta",
+        "description": "Tool for /api/get_meta: ..."
+    },
+    "..."
+]
+```
+
+### 4. Visual Verification
+
+**Screenshot Placeholder:**  
+[Insert screenshot of the registered tools in the Claude Desktop app here]
 
 ## Troubleshooting
 
 - **Missing OPENAPI_SPEC_URL:** Verify that the `OPENAPI_SPEC_URL` environment variable is set and points to a valid OpenAPI JSON file.
-- **Invalid OpenAPI Spec:** Check that the OpenAPI specification is a valid JSON and adheres to the OpenAPI standard.
-- **Connection Errors:** Confirm that the OpenAPI URL is accessible without network issues.
-- **Tool Invocation Issues:** Check server logs for errors during tool invocations and verify input parameters.
+- **Invalid OpenAPI Spec:** Ensure the JSON specification complies with the OpenAPI standard.
+- **Filtering Issues:** Check that `TOOL_WHITELIST` is correctly defined to filter the desired classes.
+- **Logging:** Consult the logs (as defined by `MCP_OPENAPI_LOGFILE_PATH`) for debugging information.
 
 ## License
 

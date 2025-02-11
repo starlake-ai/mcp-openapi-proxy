@@ -171,6 +171,12 @@ def map_verba_schema_to_tools(verba_schema: dict) -> list:
         if not cls:
             continue
         tool_name = normalize_tool_name(cls)
+        # Insert tool prefix if the TOOL_NAME_PREFIX environment variable is set
+        prefix = os.getenv("TOOL_NAME_PREFIX", "")
+        if prefix:
+            if not prefix.endswith("_"):
+                prefix += "_"
+            tool_name = prefix + tool_name
         description = f"Tool for class {cls}: " + json.dumps(entry)
         tool = types.Tool(name=tool_name, description=description, inputSchema={"type": "object"})
         tools.append(tool)
