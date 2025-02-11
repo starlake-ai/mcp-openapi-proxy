@@ -74,38 +74,82 @@ Add **mcp-openapi-proxy** to your MCP ecosystem by configuring your `mcpServers`
 
 ## Examples
 
-Below is an example demonstrating how to use the Verba endpoint for tool discovery and mapping:
+### OpenWebUI Example
 
-### 1. Discovering the Endpoint
+**1. Confirming the OpenAPI Endpoint**
 
-Running the following command:
-
+Run the following command to retrieve the OpenAPI specification:
+ 
 ```bash
-curl http://localhost:8080/v1/verba
+curl http://localhost:3000/openapi.json
 ```
+ 
+If the output is a valid OpenAPI JSON document, it confirms that the endpoint is working correctly.
 
-might return a response similar to:
+**2. Configuring mcp-openapi-proxy**
 
+In your MCP ecosystem configuration file, set the `OPENAPI_SPEC_URL` to the above endpoint. For example:
+ 
 ```json
 {
-  "classes": [
-    {
-      "class": "VERBA_Example_Class",
-      "description": "Example description",
-      "otherField": "value"
-    },
-    {
-      "class": "VERBA_Sample",
-      "description": "Another example",
-      "otherField": "value"
+    "mcpServers": {
+        "mcp-openapi-proxy": {
+            "command": "uvx",
+            "args": [
+                "--from",
+                "git+https://github.com/matthewhand/mcp-openapi-proxy",
+                "mcp-openapi-proxy"
+            ],
+            "env": {
+                "OPENAPI_SPEC_URL": "http://localhost:3000/openapi.json",
+                "TOOL_WHITELIST": "/api/models,/api/chat/completions",
+                "API_AUTH_BEARER": "your_api_bearer_token_here"
+            }
+        }
     }
-  ]
 }
 ```
+ 
+- **OPENAPI_SPEC_URL**: The URL to the OpenAPI specification.
+- **TOOL_WHITELIST**: A comma-separated list of endpoint paths to expose as tools. In this example, only the `/api/models` and `/api/chat/completions` endpoints are allowed.
+- **API_AUTH_BEARER**: The bearer token for endpoints requiring authentication.
 
-### 2. Configuring mcp-openapi-proxy
+**3. Resulting Tools**
 
-Using the MCP ecosystem configuration, you can instruct mcp-openapi-proxy to fetch the above endpoint, filter for classes starting with `VERBA_`, and prepend a prefix to tool names. For example:
+With this configuration, the MCP server will dynamically generate tools for the whitelisted endpoints. For example:
+ 
+```json
+[
+    {
+        "name": "api_models",
+        "description": "Fetches available models from /api/models"
+    },
+    {
+        "name": "api_chat_completions",
+        "description": "Generates chat completions via /api/chat/completions"
+    }
+]
+```
+ 
+**4. Visual Verification**
+ 
+You can verify the registration of these tools by inspecting the MCP server logs or using your MCP client.
+ 
+## Quivr Example
+
+**1. Verify the OpenAPI Endpoint**
+
+Run the following command to retrieve the Quivr OpenAPI JSON specification:
+
+```bash
+curl https://api.quivr.app/openapi.json
+```
+
+Ensure the response is a valid OpenAPI JSON document containing an "openapi" field (e.g., "openapi": "3.0.0") and defined API paths.
+
+**2. Configure mcp-openapi-proxy for Quivr**
+
+Update your MCP ecosystem configuration to point to the Quivr endpoint. For example:
 
 ```json
 {
@@ -118,44 +162,31 @@ Using the MCP ecosystem configuration, you can instruct mcp-openapi-proxy to fet
                 "mcp-openapi-proxy"
             ],
             "env": {
-                "OPENAPI_SPEC_URL": "http://localhost:8080/v1/verba",
-                "TOOL_BLACKLIST": "delete_document,reset"
+                "OPENAPI_SPEC_URL": "https://api.quivr.app/openapi.json",
+                "TOOL_WHITELIST": "/api/models,/api/chat/completions",
+                "API_AUTH_BEARER": "your_quivr_token_here"
             }
         }
     }
 }
 ```
 
-### 3. Resulting Tools
+**3. Resulting Tools**
 
-With the above settings, the server will map the discovered classes to MCP tools. The resulting tools might look like:
+With this configuration, the MCP server will dynamically generate tools for the whitelisted endpoints. For example:
 
 ```json
 [
     {
-        "name": "api_query",
-        "description": "Tool for /api/query: ..."
+        "name": "api_models",
+        "description": "Fetches available models from /api/models"
     },
     {
-        "name": "api_get_document",
-        "description": "Tool for /api/get_document: ..."
-    },
-    {
-        "name": "api_get_content",
-        "description": "Tool for /api/get_content: ..."
-    },
-    {
-        "name": "api_get_meta",
-        "description": "Tool for /api/get_meta: ..."
-    },
-    "..."
+        "name": "api_chat_completions",
+        "description": "Generates chat completions via /api/chat/completions"
+    }
 ]
 ```
-
-### 4. Visual Verification
-
-**Screenshot Placeholder:**  
-[Insert screenshot of the registered tools in the Claude Desktop app here]
 
 ## Troubleshooting
 
@@ -167,3 +198,56 @@ With the above settings, the server will map the discovered classes to MCP tools
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## GetZep Example
+
+**1. Verify the Swagger Endpoint**
+
+Run the following command to retrieve the GetZep Swagger JSON specification:
+
+```bash
+curl https://getzep.github.io/zep/swagger.json
+```
+
+Ensure the response is a valid Swagger document containing a "swagger" field (e.g., "swagger": "2.0") and defined API paths.
+
+**2. Configure mcp-openapi-proxy for GetZep**
+
+Update your MCP ecosystem configuration to point to the GetZep Swagger endpoint. For example:
+
+```json
+{
+    "mcpServers": {
+        "mcp-openapi-proxy": {
+            "command": "uvx",
+            "args": [
+                "--from",
+                "git+https://github.com/matthewhand/mcp-openapi-proxy",
+                "mcp-openapi-proxy"
+            ],
+            "env": {
+                "OPENAPI_SPEC_URL": "https://getzep.github.io/zep/swagger.json",
+                "TOOL_WHITELIST": "/api/models,/api/chat/completions",
+                "API_AUTH_BEARER": "your_getzep_token_if_required"
+            }
+        }
+    }
+}
+```
+
+**3. Resulting Tools**
+
+With this configuration, the MCP server will dynamically generate tools for the whitelisted endpoints. For example:
+
+```json
+[
+    {
+        "name": "api_models",
+        "description": "Fetches available models from /api/models"
+    },
+    {
+        "name": "api_chat_completions",
+        "description": "Generates chat completions via /api/chat/completions"
+    }
+]
+```

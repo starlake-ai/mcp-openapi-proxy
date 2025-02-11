@@ -30,7 +30,7 @@ tools: List[types.Tool] = []
 openapi_spec_data = None # Store OpenAPI spec globally (or use caching)
 
 # Initialize the Low-Level MCP Server
-mcp = Server("AnyOpenAPIMCP-LowLevel")
+mcp = Server("OpenApiProxy-LowLevel")
 
 
 async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResult:

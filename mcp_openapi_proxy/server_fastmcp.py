@@ -1,94 +1,108 @@
 """
 Provides the FastMCP server logic for mcp-openapi-proxy.
 
-This server exposes a pre-defined set of functions based on OpenAPI specifications,
-configured via environment variables.
+This server exposes a pre-defined set of functions based on an OpenAPI specification.
+Configuration is controlled via environment variables:
+
+- OPENAPI_SPEC_URL: URL pointing to the OpenAPI JSON specification.
+- OPENAPI_SIMPLE_MODE_FUNCTION_CONFIG: JSON configuration for available functions.
+- DEBUG: Enables debug logging when set to true.
+
+The server supports dynamic parsing of the OpenAPI document, filtering of endpoints,
+and makes authenticated API calls if needed.
 """
 
 import os
 import sys
 import json
-import requests  # Import requests to make API calls
+import requests  # Used for making external API calls
 from mcp.server.fastmcp import FastMCP
-from mcp_any_openapi.utils import setup_logging, fetch_openapi_spec  # Import utils if needed
+from mcp_openapi_proxy.utils import setup_logging, fetch_openapi_spec  # Utility functions for logging and OpenAPI spec fetching
 
-# Environment variables
+# Retrieve configuration from environment variables
 OPENAPI_SPEC_URL = os.getenv("OPENAPI_SPEC_URL")
-# Example configurations for specific functions (you'll need to define these)
-FUNCTION_CONFIG_JSON = os.getenv("OPENAPI_SIMPLE_MODE_FUNCTION_CONFIG") # JSON config for functions
-
+FUNCTION_CONFIG_JSON = os.getenv("OPENAPI_SIMPLE_MODE_FUNCTION_CONFIG")  # JSON config for functions (if provided)
 DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
 
-# Configure logging
+# Set up logging with debug level if enabled
 logger = setup_logging(debug=DEBUG)
-
-# Log key environment variable values
 logger.debug(f"OpenAPI Spec URL: {OPENAPI_SPEC_URL}")
 logger.debug(f"Function Config JSON: {FUNCTION_CONFIG_JSON}")
 
-
-# Initialize FastMCP Server
-mcp = FastMCP("AnyOpenAPIMCP-Fast")
-
+# Initialize FastMCP server with a descriptive name
+mcp = FastMCP("OpenApiProxy-Fast")
 
 @mcp.tool()
 def list_functions() -> str:
     """
-    List available functions (API endpoints) from the OpenAPI specification.
+    Lists available functions (API endpoints) defined in the OpenAPI specification.
 
     Returns:
-        str: A JSON-encoded string of available function descriptions.
+        A JSON-encoded string of available function descriptions, or an error message if configuration is missing.
     """
-    logger.debug("Handling list_functions tool.")
+    logger.debug("Executing list_functions tool.")
+    
     if not OPENAPI_SPEC_URL:
-        return json.dumps({"error": "OPENAPI_SPEC_URL is not configured."})
-
+        error_msg = "OPENAPI_SPEC_URL is not configured."
+        logger.error(error_msg)
+        return json.dumps({"error": error_msg})
+    
     spec = fetch_openapi_spec(OPENAPI_SPEC_URL)
     if not spec:
-        return json.dumps({"error": "Failed to fetch or parse OpenAPI specification."})
-
+        error_msg = "Failed to fetch or parse the OpenAPI specification."
+        logger.error(error_msg)
+        return json.dumps({"error": error_msg})
+    
     functions = []
+    # Iterate over all paths defined in the OpenAPI spec
     for path, path_item in spec.get('paths', {}).items():
+        # process only common HTTP methods
         for method, operation in path_item.items():
             if method.lower() not in ['get', 'post', 'put', 'delete', 'patch']:
-                continue # Skip OPTIONS, HEAD etc.
-
-            function_name = f"{method.upper()} {path}" # Simple function name
-            function_description = operation.get('summary', operation.get('description', 'No description'))
-
+                continue  # Skip non-standard methods like OPTIONS, HEAD etc.
+            
+            function_name = f"{method.upper()} {path}"
+            function_description = operation.get('summary', operation.get('description', 'No description provided.'))
+            logger.debug(f"Found function: {function_name} - {function_description}")
+            
             functions.append({
                 "name": function_name,
                 "description": function_description,
                 "path": path,
                 "method": method.upper(),
-                "operationId": operation.get('operationId') # useful for later?
+                "operationId": operation.get('operationId')
             })
-
+    
+    logger.info(f"Discovered {len(functions)} functions from the OpenAPI spec.")
     return json.dumps(functions, indent=2)
-
 
 @mcp.tool()
 def call_function(*, function_name: str, parameters: dict = None) -> str:
     """
-    Call a specific API function (OpenAPI endpoint).
+    Calls a specified API function (an endpoint defined in the OpenAPI spec) with parameters.
 
     Args:
-        function_name (str): The name of the function to call (e.g., 'GET /pets').
-        parameters (dict, optional): Parameters for the API call. Defaults to None.
+        function_name (str): The name of the API function to call (e.g., "GET /pets").
+        parameters (dict, optional): Parameters for the API call (query parameters, request body, etc.).
 
     Returns:
-        str: The JSON response from the API call, or an error message.
+        The raw API response as a JSON-encoded string or an error message.
     """
-    logger.debug(f"call_function called with function_name={function_name}, parameters={parameters}")
-
+    logger.debug(f"call_function invoked with function_name='{function_name}' and parameters={parameters}")
+    
+    # Validate configuration
     if not OPENAPI_SPEC_URL:
-        return json.dumps({"error": "OPENAPI_SPEC_URL is not configured."})
-
+        error_msg = "OPENAPI_SPEC_URL is not configured."
+        logger.error(error_msg)
+        return json.dumps({"error": error_msg})
+    
     spec = fetch_openapi_spec(OPENAPI_SPEC_URL)
     if not spec:
-        return json.dumps({"error": "Failed to fetch or parse OpenAPI specification."})
-
-    # Find the function definition from the spec (very basic matching for now)
+        error_msg = "Failed to fetch or parse the OpenAPI specification."
+        logger.error(error_msg)
+        return json.dumps({"error": error_msg})
+    
+    # Attempt to locate the function definition within the spec
     function_def = None
     for path, path_item in spec.get('paths', {}).items():
         for method, operation in path_item.items():
@@ -101,54 +115,62 @@ def call_function(*, function_name: str, parameters: dict = None) -> str:
                     "method": method.upper(),
                     "operation": operation
                 }
+                logger.debug(f"Matched function definition for '{function_name}'.")
                 break
         if function_def:
             break
-
+    
     if not function_def:
-        return json.dumps({"error": f"Function '{function_name}' not found in OpenAPI spec."})
-
-    # Construct API request URL (basic - you'll need to handle server URL from spec)
-    base_url = spec.get('servers', [{}])[0].get('url', '') # Very basic server URL extraction
+        error_msg = f"Function '{function_name}' not found in OpenAPI spec."
+        logger.error(error_msg)
+        return json.dumps({"error": error_msg})
+    
+    # Construct the API request URL
+    servers = spec.get('servers', [{}])
+    base_url = servers[0].get('url', '') if servers else ''
+    if not base_url:
+        logger.warning("No base server URL found in the OpenAPI spec; using empty string.")
     api_url = base_url.rstrip('/') + function_def["path"]
-
-    # Prepare parameters (query parameters for GET, request body for others - needs more robust handling)
+    logger.debug(f"Constructed API URL: {api_url}")
+    
+    # Prepare request parameters
     request_params = {}
     request_body = None
-
     if parameters:
         if function_def["method"] == "GET":
-            request_params = parameters # Assume GET params are query params
+            request_params = parameters  # Assume GET parameters are query parameters
         else:
-            request_body = parameters # Assume other methods use request body
-
-
+            request_body = parameters  # For non-GET methods, send as JSON body
+    
+    logger.debug(f"Request params: {request_params}, Request body: {request_body}")
+    
     try:
         response = requests.request(
             method=function_def["method"],
             url=api_url,
             params=request_params if function_def["method"] == "GET" else None,
-            json=request_body if function_def["method"] != "GET" and request_body else None # Send body as JSON if not GET and body exists
+            json=request_body if function_def["method"] != "GET" and request_body else None
         )
-        response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
-        return response.text # Return raw response text for now (you might want to parse JSON and format)
-
+        response.raise_for_status()  # Raises an exception for HTTP error codes (4xx, 5xx)
+        logger.debug(f"API response received: {response.text}")
+        return response.text  # Return raw response text (caller may choose to parse as needed)
+    
     except requests.exceptions.RequestException as e:
-        return json.dumps({"error": f"API request failed: {e}"})
-
-
+        error_msg = f"API request failed: {e}"
+        logger.error(error_msg, exc_info=True)
+        return json.dumps({"error": error_msg})
 
 def run_simple_server():
     """
-    Run the FastMCP version of the Any OpenAPI server.
-
-    This function initializes and runs the FastMCP server, making sure
-    required configurations are in place.
+    Runs the FastMCP version of the Any OpenAPI server.
+    
+    This function checks that necessary configurations (e.g., OPENAPI_SPEC_URL) are in place,
+    then starts the MCP server using standard IO transport.
     """
     if not OPENAPI_SPEC_URL:
-        logger.error("OPENAPI_SPEC_URL environment variable is required for simple mode.")
+        logger.error("OPENAPI_SPEC_URL environment variable is required for FastMCP mode.")
         sys.exit(1)
-
+    
     try:
         logger.debug("Starting MCP server (FastMCP version)...")
         mcp.run(transport="stdio")
