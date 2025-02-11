@@ -1,5 +1,5 @@
 """
-Provides the FastMCP server logic for mcp_any_openapi.
+Provides the FastMCP server logic for mcp-openapi-proxy.
 
 This server exposes a pre-defined set of functions based on OpenAPI specifications,
 configured via environment variables.

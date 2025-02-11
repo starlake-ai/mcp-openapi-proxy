@@ -1,5 +1,5 @@
 """
-Low-Level Server for the Any OpenAPI MCP.
+Low-Level Server for mcp-openapi-proxy.
 
 This server dynamically registers functions (tools) based on an OpenAPI specification,
 directly utilizing the spec for tool definitions and invocation.

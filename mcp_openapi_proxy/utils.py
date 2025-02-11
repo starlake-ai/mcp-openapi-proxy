@@ -154,3 +154,24 @@ logger.debug(f"OpenAPI Spec URL: {OPENAPI_SPEC_URL}") # Log spec URL
 # logger.debug(f"OpenAPI API Key (redacted): {redact_api_key(OPENAPI_API_KEY)}")
 
 logger.debug("utils.py initialized")
+
+def map_verba_schema_to_tools(verba_schema: dict) -> list:
+    """
+    Map the schema returned by the /v1/verba endpoint to a list of MCP tools.
+
+    Each class entry in the schema is expected to have a "class" field.
+    This function creates an MCP tool for each class in the schema.
+    """
+    import json
+    from mcp import types
+    tools = []
+    classes = verba_schema.get("classes", [])
+    for entry in classes:
+        cls = entry.get("class", "")
+        if not cls:
+            continue
+        tool_name = normalize_tool_name(cls)
+        description = f"Tool for class {cls}: " + json.dumps(entry)
+        tool = types.Tool(name=tool_name, description=description, inputSchema={"type": "object"})
+        tools.append(tool)
+    return tools

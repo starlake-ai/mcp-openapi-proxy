@@ -1,17 +1,17 @@
 """
-Entry point for the mcp_any_openapi package.
+Entry point for the mcp_openapi_proxy package.
 
 This script determines which server to run based on the presence of
 the OPENAPI_SIMPLE_MODE environment variable:
 - Low-Level Server: For dynamic tool creation from OpenAPI spec.
 - FastMCP Server: For static tool configurations defined in code.
 """
-
+ 
 import os
 import sys
 from dotenv import load_dotenv
-from mcp_any_openapi.utils import setup_logging
-
+from mcp_openapi_proxy.utils import setup_logging
+ 
 # Load environment variables from .env if present
 load_dotenv()
 

@@ -191,7 +191,7 @@ cli = [
 ]
 
 [[package]]
-name = "mcp-any-openapi"
+name = "mcp-openapi-proxy"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

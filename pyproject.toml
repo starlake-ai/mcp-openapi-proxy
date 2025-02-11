@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mcp-any-openapi"
+name = "mcp-openapi-proxy"
 version = "0.1.0"
 description = "MCP server for exposing OpenAPI specifications as MCP tools."
 readme = "README.md"
@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.scripts]
-mcp-any-openapi = "mcp_any_openapi.__main__:main"
+mcp-openapi-proxy = "mcp_openapi_proxy.__main__:main"
 
 [dependency-groups]
 dev = [
@@ -27,4 +27,4 @@ dev = [
 ]
 
 [tool.setuptools.packages]
-find = {include = ["mcp_any_openapi", "mcp_any_openapi.*"]}
+find = {include = ["mcp_openapi_proxy", "mcp_openapi_proxy.*"]}
