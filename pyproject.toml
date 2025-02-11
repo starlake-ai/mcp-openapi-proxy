@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mcp-any-openapi"
+version = "0.1.0"
+description = "MCP server for exposing OpenAPI specifications as MCP tools."
+readme = "README.md"
+authors = [
+  { name = "Matthew Hand", email = "matthewhandau@gmail.com" }
+]
+dependencies = [
+  "mcp[cli]>=1.2.0",
+  "python-dotenv>=1.0.1",
+  "requests>=2.25.0",
+  "fastapi>=0.100.0", # needed for openapi parsing utils if we use them later # needed for data validation and openapi schema handling
+  "pydantic>=2.0",
+]
+
+[project.scripts]
+mcp-any-openapi = "mcp_any_openapi.__main__:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.4",
+]
+
+[tool.setuptools.packages]
+find = {include = ["mcp_any_openapi", "mcp_any_openapi.*"]}
