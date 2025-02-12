@@ -10,6 +10,7 @@
       "env": {
         "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/abhiaagarwal/peristera/refs/heads/main/fly-machines-gen/fixed_spec.json",
         "TOOL_WHITELIST": "/machines/list,/machines/start,/machines/status",
+        "SERVER_URL_OVERRIDE": "https://api.machines.dev http://_api.internal:4280",
         "API_AUTH_BEARER": "your_flyio_token_here"
       }
     }
