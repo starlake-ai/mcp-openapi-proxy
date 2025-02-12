@@ -23,13 +23,13 @@ def setup_logging(debug: bool = False, log_dir: str = None, log_file: str = "deb
 
     Args:
         debug (bool): If True, set log level to DEBUG; otherwise, INFO.
-        log_dir (str): Directory where log files will be stored. Ignored if `MCP_OPENAPI_LOGFILE_PATH` is set.
-        log_file (str): Name of the log file. Ignored if `MCP_OPENAPI_LOGFILE_PATH` is set.
+        log_dir (str): Directory where log files will be stored. Ignored if `OPENAPI_LOGFILE_PATH` is set.
+        log_file (str): Name of the log file. Ignored if `OPENAPI_LOGFILE_PATH` is set.
 
     Returns:
         logging.Logger: Configured logger instance.
     """
-    log_path = os.getenv("MCP_OPENAPI_LOGFILE_PATH")
+    log_path = os.getenv("OPENAPI_LOGFILE_PATH")
     if not log_path:
         if log_dir is None:
             log_dir = os.path.join(os.path.expanduser("~"), "mcp_logs")
@@ -82,6 +82,18 @@ def setup_logging(debug: bool = False, log_dir: str = None, log_file: str = "deb
     return logger
 
 
+# Set up logging before obtaining the logger
+DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
+logger = setup_logging(debug=DEBUG)
+
+# Log key environment variable values
+logger.debug(f"OpenAPI Spec URL: {OPENAPI_SPEC_URL}") # Log spec URL
+# Example of logging a redacted API key if you introduce API key auth later:
+# OPENAPI_API_KEY = os.getenv("OPENAPI_API_KEY")
+# logger.debug(f"OpenAPI API Key (redacted): {redact_api_key(OPENAPI_API_KEY)}")
+
+logger.debug("utils.py initialized")
+
 def redact_api_key(key: str) -> str:
     """
     Redacts a generic API key or secret for safe logging output.
@@ -117,6 +129,21 @@ def normalize_tool_name(name: str) -> str:
     logger.debug(f"Normalized tool name from '{name}' to '{normalized}'")
     return normalized or "unknown_tool"
 
+def get_tool_prefix() -> str:
+    prefix = os.getenv("TOOL_NAME_PREFIX", "")
+    if prefix and not prefix.endswith("_"):
+        prefix += "_"
+    return prefix
+
+def is_tool_whitelisted(endpoint: str) -> bool:
+    whitelist = os.getenv("TOOL_WHITELIST", "")
+    if not whitelist:
+        return True
+    items = [item.strip() for item in whitelist.split(",") if item.strip()]
+    for item in items:
+        if endpoint.startswith(item):
+            return True
+    return False
 
 def fetch_openapi_spec(spec_url: str) -> dict:
     """
@@ -143,17 +170,6 @@ def fetch_openapi_spec(spec_url: str) -> dict:
         return None
 
 
-# Set up logging before obtaining the logger
-DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
-logger = setup_logging(debug=DEBUG)
-
-# Log key environment variable values
-logger.debug(f"OpenAPI Spec URL: {OPENAPI_SPEC_URL}") # Log spec URL
-# Example of logging a redacted API key if you introduce API key auth later:
-# OPENAPI_API_KEY = os.getenv("OPENAPI_API_KEY")
-# logger.debug(f"OpenAPI API Key (redacted): {redact_api_key(OPENAPI_API_KEY)}")
-
-logger.debug("utils.py initialized")
 
 def map_verba_schema_to_tools(verba_schema: dict) -> list:
     """

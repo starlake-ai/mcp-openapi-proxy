@@ -125,11 +125,18 @@ def call_function(*, function_name: str, parameters: dict = None) -> str:
         logger.error(error_msg)
         return json.dumps({"error": error_msg})
     
-    # Construct the API request URL
-    servers = spec.get('servers', [{}])
-    base_url = servers[0].get('url', '') if servers else ''
-    if not base_url:
-        logger.warning("No base server URL found in the OpenAPI spec; using empty string.")
+    # Construct the API request URL with optional SERVER_URL_OVERRIDE
+    SERVER_URL_OVERRIDE = os.getenv("SERVER_URL_OVERRIDE")
+    if SERVER_URL_OVERRIDE:
+        override_urls = SERVER_URL_OVERRIDE.strip().split()
+        base_url = override_urls[0] if override_urls else ""
+        logger.debug(f"Using SERVER_URL_OVERRIDE, base_url set to: {base_url}")
+    else:
+        servers = spec.get('servers', [{}])
+        base_url = servers[0].get('url', '') if servers else ''
+        if not base_url:
+            logger.warning("No base server URL found in the OpenAPI spec; using empty string.")
+        logger.debug(f"Using base_url from spec: {base_url}")
     api_url = base_url.rstrip('/') + function_def["path"]
     logger.debug(f"Constructed API URL: {api_url}")
     
