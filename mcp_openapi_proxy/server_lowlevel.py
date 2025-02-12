@@ -86,6 +86,9 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
         # Prepare remaining parameters as query parameters (after removing path params)
         query_params = {}
         headers = {}
+        auth_token = os.getenv("API_AUTH_BEARER")
+        if auth_token:
+            headers["Authorization"] = "Bearer " + auth_token
         request_body = None
 
         if arguments and 'parameters' in arguments: # 'parameters' now only contains query params (after path params removed)

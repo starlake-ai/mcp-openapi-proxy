@@ -151,10 +151,16 @@ def call_function(*, function_name: str, parameters: dict = None) -> str:
     
     logger.debug(f"Request params: {request_params}, Request body: {request_body}")
     
+    headers = {}
+    api_auth = os.getenv("API_AUTH_BEARER")
+    if api_auth:
+        headers["Authorization"] = "Bearer " + api_auth
+
     try:
         response = requests.request(
             method=function_def["method"],
             url=api_url,
+            headers=headers,
             params=request_params if function_def["method"] == "GET" else None,
             json=request_body if function_def["method"] != "GET" and request_body else None
         )

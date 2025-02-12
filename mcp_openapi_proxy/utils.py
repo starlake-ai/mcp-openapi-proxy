@@ -1,5 +1,5 @@
 """
-Utility functions for mcp_any_openapi, including logging setup,
+Utility functions for mcp_openapi_proxy, including logging setup,
 OpenAPI fetching, and name normalization.
 """
 

@@ -17,7 +17,7 @@ load_dotenv()
 
 def main():
     """
-    Main entry point for the mcp_any_openapi package.
+    Main entry point for the mcp_openapi_proxy package.
 
     Depending on the OPENAPI_SIMPLE_MODE environment variable, this function
     launches either:
