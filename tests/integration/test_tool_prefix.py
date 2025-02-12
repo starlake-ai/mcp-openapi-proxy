@@ -1,7 +1,7 @@
 import os
 import unittest
 import json
-from mcp_openapi_proxy.utils import map_verba_schema_to_tools
+from mcp_openapi_proxy.utils import map_schema_to_tools
 
 class ToolPrefixIntegrationTest(unittest.TestCase):
     def setUp(self):
@@ -21,7 +21,7 @@ class ToolPrefixIntegrationTest(unittest.TestCase):
                 {"class": "VERBA_Sample", "attribute": "value2"}
             ]
         }
-        tools = map_verba_schema_to_tools(sample_schema)
+        tools = map_schema_to_tools(sample_schema)
         # Expect 2 tools mapped from the sample schema
         self.assertEqual(len(tools), 2, "Expected 2 tools from schema mapping")
         for tool in tools:

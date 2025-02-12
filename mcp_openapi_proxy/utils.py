@@ -1,6 +1,6 @@
 """
 Utility functions for mcp_openapi_proxy, including logging setup,
-OpenAPI fetching, and name normalization.
+OpenAPI fetching, name normalization, and whitelist filtering for tools.
 """
 
 import os
@@ -14,17 +14,17 @@ from dotenv import load_dotenv
 # Load environment variables from .env if present
 load_dotenv()
 
-# OpenAPI related configurations (add more if needed)
-OPENAPI_SPEC_URL = os.getenv("OPENAPI_SPEC_URL") # Example - you can log this
+# OpenAPI related configuration (extend as needed)
+OPENAPI_SPEC_URL = os.getenv("OPENAPI_SPEC_URL")  # Example - used to specify the OpenAPI spec URL
 
 def setup_logging(debug: bool = False, log_dir: str = None, log_file: str = "debug-mcp-any-openapi.log") -> logging.Logger:
     """
     Sets up logging for the application, including outputting CRITICAL and ERROR logs to stdout.
 
     Args:
-        debug (bool): If True, set log level to DEBUG; otherwise, INFO.
-        log_dir (str): Directory where log files will be stored. Ignored if `OPENAPI_LOGFILE_PATH` is set.
-        log_file (str): Name of the log file. Ignored if `OPENAPI_LOGFILE_PATH` is set.
+        debug (bool): If True, sets log level to DEBUG; otherwise, INFO.
+        log_dir (str): Directory where log files will be stored. Ignored if OPENAPI_LOGFILE_PATH is set.
+        log_file (str): Name of the log file. Ignored if OPENAPI_LOGFILE_PATH is set.
 
     Returns:
         logging.Logger: Configured logger instance.
@@ -40,17 +40,13 @@ def setup_logging(debug: bool = False, log_dir: str = None, log_file: str = "deb
             # Fallback to stdout logging if directory creation fails
             log_path = None
             print(f"[ERROR] Failed to create log directory: {e}", file=sys.stderr)
-
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG if debug else logging.INFO)
     logger.propagate = False  # Prevent log messages from propagating to the root logger
-
     # Remove all existing handlers to prevent accumulation
     for handler in logger.handlers[:]:
         logger.removeHandler(handler)
-
     handlers = []
-
     if log_path:
         try:
             file_handler = logging.FileHandler(log_path, mode="a")
@@ -60,105 +56,127 @@ def setup_logging(debug: bool = False, log_dir: str = None, log_file: str = "deb
             handlers.append(file_handler)
         except Exception as e:
             print(f"[ERROR] Failed to create log file handler: {e}", file=sys.stderr)
-
-    # Attempt to create StreamHandler for ERROR level logs (and above) to stdout
+    # Create StreamHandler for ERROR level logs (and above) to stdout
     try:
         stdout_handler = logging.StreamHandler(sys.stdout)
-        stdout_handler.setLevel(logging.ERROR) # Output ERROR and CRITICAL to stdout
+        stdout_handler.setLevel(logging.ERROR)
         formatter = logging.Formatter("[%(levelname)s] %(message)s")
         stdout_handler.setFormatter(formatter)
         handlers.append(stdout_handler)
     except Exception as e:
         print(f"[ERROR] Failed to create stdout log handler: {e}", file=sys.stderr)
-
-    # Add all handlers to the logger
     for handler in handlers:
         logger.addHandler(handler)
-
     if log_path:
         logger.debug(f"Logging initialized. Writing logs to {log_path}")
     else:
         logger.debug("Logging initialized. Logs will only appear in stdout.")
     return logger
 
-
-# Set up logging before obtaining the logger
+# Set up logging immediately
 DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
 logger = setup_logging(debug=DEBUG)
 
-# Log key environment variable values
-logger.debug(f"OpenAPI Spec URL: {OPENAPI_SPEC_URL}") # Log spec URL
-# Example of logging a redacted API key if you introduce API key auth later:
-# OPENAPI_API_KEY = os.getenv("OPENAPI_API_KEY")
-# logger.debug(f"OpenAPI API Key (redacted): {redact_api_key(OPENAPI_API_KEY)}")
-
+# Log key configuration values
+logger.debug(f"OpenAPI Spec URL: {OPENAPI_SPEC_URL}")
 logger.debug("utils.py initialized")
 
 def redact_api_key(key: str) -> str:
     """
-    Redacts a generic API key or secret for safe logging output.
+    Redacts an API key for secure logging.
 
     Args:
-        key (str): The API key to redact.
+        key (str): The API key or secret.
 
     Returns:
-        str: The redacted API key or '<not set>' if the key is invalid.
+        str: The redacted API key, or '<not set>' if key is invalid.
     """
     if not key or len(key) <= 4:
         return "<not set>"
     return f"{key[:2]}{'*' * (len(key) - 4)}{key[-2:]}"
 
-
 def normalize_tool_name(name: str) -> str:
     """
-    Normalize tool names by converting to lowercase and replacing non-alphanumeric characters with underscores.
-
+    Normalizes tool names by converting to lowercase and replacing non-alphanumeric characters with underscores.
+    
     Args:
-        name (str): Original tool name.
-
+        name (str): The original tool name.
+    
     Returns:
-        str: Normalized tool name. Returns 'unknown_tool' if the input is invalid.
+        str: A normalized tool name. Returns 'unknown_tool' if input is invalid.
     """
     logger = logging.getLogger(__name__)
     if not name or not isinstance(name, str):
         logger.warning(f"Invalid tool name input: {name}. Using default 'unknown_tool'.")
         return "unknown_tool"
-    normalized = re.sub(r"[^a-zA-Z0-9_]", "_", name).lower() # Keep underscores, remove other non-alphanumeric
-    normalized = re.sub(r"_+", "_", normalized) # Replace multiple underscores with single
-    normalized = normalized.strip('_') # Remove leading/trailing underscores
+    # Replace non-alphanumeric characters (except underscores) with underscores
+    normalized = re.sub(r"[^a-zA-Z0-9_]", "_", name).lower()
+    normalized = re.sub(r"_+", "_", normalized)  # Replace multiple underscores with a single underscore
+    normalized = normalized.strip('_')
     logger.debug(f"Normalized tool name from '{name}' to '{normalized}'")
     return normalized or "unknown_tool"
 
 def get_tool_prefix() -> str:
+    """
+    Obtains the tool name prefix from the environment variable, ensuring it ends with an underscore.
+    
+    Returns:
+        str: The tool name prefix.
+    """
     prefix = os.getenv("TOOL_NAME_PREFIX", "")
     if prefix and not prefix.endswith("_"):
         prefix += "_"
     return prefix
 
 def is_tool_whitelisted(endpoint: str) -> bool:
+    """
+    Determines whether a given endpoint is allowed based on the TOOL_WHITELIST environment variable.
+    
+    The whitelist can specify fixed prefixes or use placeholders (e.g., {collection_name})
+    which are translated into regex patterns matching one or more alphanumeric characters.
+    
+    Args:
+        endpoint (str): The API endpoint path to check.
+    
+    Returns:
+        bool: True if the endpoint is whitelisted, False otherwise.
+    """
+    import re
     whitelist = os.getenv("TOOL_WHITELIST", "")
     if not whitelist:
         return True
     items = [item.strip() for item in whitelist.split(",") if item.strip()]
     for item in items:
-        if endpoint.startswith(item):
-            return True
+        if "{" in item and "}" in item:
+            # Convert whitelist pattern with placeholders to regex.
+            pattern = re.escape(item)
+            # Revert escaping for curly braces.
+            pattern = pattern.replace(r"\{", "{").replace(r"\}", "}")
+            # Replace placeholders with regex for one or more alphanumeric characters.
+            pattern = re.sub(r"\{[^}]+\}", r"[A-Za-z0-9]+", pattern)
+            # Ensure pattern matches from the start of the string.
+            pattern = "^" + pattern
+            if re.match(pattern, endpoint):
+                return True
+        else:
+            if endpoint.startswith(item):
+                return True
     return False
 
 def fetch_openapi_spec(spec_url: str) -> dict:
     """
-    Fetches and parses the OpenAPI specification from a URL.
-
+    Fetches and parses an OpenAPI specification from the given URL.
+    
     Args:
-        spec_url (str): URL of the OpenAPI specification JSON file.
-
+        spec_url (str): The URL of the OpenAPI specification (JSON format).
+    
     Returns:
-        dict: Parsed OpenAPI specification as a dictionary, or None if an error occurs.
+        dict: The parsed OpenAPI specification, or None if an error occurs.
     """
     logger = logging.getLogger(__name__)
     try:
         response = requests.get(spec_url)
-        response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+        response.raise_for_status()  # Raises HTTPError for bad responses
         spec = response.json()
         logger.debug(f"Successfully fetched OpenAPI spec from {spec_url}")
         return spec
@@ -169,25 +187,28 @@ def fetch_openapi_spec(spec_url: str) -> dict:
         logger.error(f"Error parsing JSON response from {spec_url}: {e}")
         return None
 
-
-
-def map_verba_schema_to_tools(verba_schema: dict) -> list:
+def map_schema_to_tools(schema: dict) -> list:
     """
-    Map the schema returned by the /v1/verba endpoint to a list of MCP tools.
-
-    Each class entry in the schema is expected to have a "class" field.
-    This function creates an MCP tool for each class in the schema.
+    Maps a given schema to a list of MCP tools.
+    
+    Each entry in the schema is expected to have a "class" field, and a tool is created based on it.
+    
+    Args:
+        schema (dict): The schema containing a list of classes.
+    
+    Returns:
+        list: A list of tool objects configured from the schema.
     """
     import json
     from mcp import types
     tools = []
-    classes = verba_schema.get("classes", [])
+    classes = schema.get("classes", [])
     for entry in classes:
         cls = entry.get("class", "")
         if not cls:
             continue
         tool_name = normalize_tool_name(cls)
-        # Insert tool prefix if the TOOL_NAME_PREFIX environment variable is set
+        # Prepend tool prefix if configured via environment variable
         prefix = os.getenv("TOOL_NAME_PREFIX", "")
         if prefix:
             if not prefix.endswith("_"):
