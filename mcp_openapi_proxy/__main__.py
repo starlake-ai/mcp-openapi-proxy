@@ -28,7 +28,7 @@ def main():
     DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
     logger = setup_logging(debug=DEBUG)
 
-    logger.debug("Starting mcp_any_openapi package entry point.")
+    logger.debug("Starting mcp_openapi_proxy package entry point.")
 
     # Default to Low-Level Mode unless SIMPLE_MODE is explicitly enabled
     OPENAPI_SIMPLE_MODE = os.getenv("OPENAPI_SIMPLE_MODE", "false").lower() in ("true", "1", "yes") # Default to false, enable with "true" etc.

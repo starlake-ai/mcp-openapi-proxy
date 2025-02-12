@@ -15,7 +15,7 @@ from mcp import types
 from mcp.server.lowlevel import Server
 from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
-from mcp_any_openapi.utils import (
+from mcp_openapi_proxy.utils import (
     setup_logging,
     fetch_openapi_spec,
     normalize_tool_name,
