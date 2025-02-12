@@ -34,11 +34,11 @@ def main():
     OPENAPI_SIMPLE_MODE = os.getenv("OPENAPI_SIMPLE_MODE", "false").lower() in ("true", "1", "yes") # Default to false, enable with "true" etc.
     if OPENAPI_SIMPLE_MODE:
         logger.debug("OPENAPI_SIMPLE_MODE is enabled. Launching FastMCP Server.")
-        from mcp_any_openapi.server_fastmcp import run_simple_server
+        from mcp_openapi_proxy.server_fastmcp import run_simple_server
         selected_server = run_simple_server
     else:
         logger.debug("OPENAPI_SIMPLE_MODE is disabled. Launching Low-Level Server.")
-        from mcp_any_openapi.server_lowlevel import run_server
+        from mcp_openapi_proxy.server_lowlevel import run_server
         selected_server = run_server
 
     # Run the selected server
