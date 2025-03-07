@@ -124,34 +124,45 @@ def get_tool_prefix() -> str:
 
 def is_tool_whitelisted(endpoint: str) -> bool:
     """
-    Determines whether a given endpoint is allowed based on the TOOL_WHITELIST environment variable.
+    Checks if an endpoint is in the TOOL_WHITELIST, supporting exact matches, prefixes, and path parameters.
 
     Args:
         endpoint (str): The API endpoint path to check.
 
     Returns:
-        bool: True if the endpoint is whitelisted, False otherwise.
+        bool: True if whitelisted or no whitelist set, False otherwise.
     """
     whitelist = os.getenv("TOOL_WHITELIST", "")
-    logger.debug(f"Checking whitelist for endpoint: {endpoint}, TOOL_WHITELIST: {whitelist}")
+    logger.debug(f"Checking whitelist - endpoint: {endpoint}, TOOL_WHITELIST: {whitelist}")
     if not whitelist:
         logger.debug("No TOOL_WHITELIST set, allowing all endpoints.")
         return True
-    items = [item.strip() for item in whitelist.split(",") if item.strip()]
-    for item in items:
-        logger.debug(f"Comparing against whitelist item: {item}")
-        if "{" in item and "}" in item:
-            pattern = re.escape(item)
-            pattern = pattern.replace(r"\{", "{").replace(r"\}", "}")
-            pattern = re.sub(r"\{[^}]+\}", r"[A-Za-z0-9_-]+", pattern)
-            pattern = "^" + pattern
-            if re.match(pattern, endpoint):
-                logger.debug(f"Matched regex pattern: {pattern} for {endpoint}")
-                return True
-        elif endpoint.startswith(item):
+    
+    whitelist_items = [item.strip() for item in whitelist.split(",") if item.strip()]
+    
+    # Direct match
+    if endpoint in whitelist_items:
+        logger.debug(f"Direct match found for {endpoint} in whitelist")
+        return True
+    
+    # Prefix match (e.g., /tasks matches /tasks/123)
+    for item in whitelist_items:
+        if not '{' in item and endpoint.startswith(item):
             logger.debug(f"Prefix match found: {item} starts {endpoint}")
             return True
-    logger.debug(f"Endpoint {endpoint} not whitelisted.")
+    
+    # Path parameter match (e.g., /sessions/{sessionId} matches /sessions/abc123 or /sessions/abc123/items)
+    for item in whitelist_items:
+        if '{' in item and '}' in item:
+            pattern = re.escape(item)
+            pattern = pattern.replace(r"\{", "{").replace(r"\}", "}")
+            pattern = re.sub(r"\{[^}]+\}", r"[^/]+", pattern)
+            pattern = f"^{pattern}(/.*)?$"  # Allow optional trailing segments
+            if re.match(pattern, endpoint):
+                logger.debug(f"Pattern match found for {endpoint} using {item}")
+                return True
+                
+    logger.debug(f"No whitelist match found for {endpoint}")
     return False
 
 def fetch_openapi_spec(spec_url: str) -> dict:
@@ -196,6 +207,24 @@ def fetch_openapi_spec(spec_url: str) -> dict:
     except Exception as e:
         logger.error(f"Unexpected error with OpenAPI spec from {spec_url}: {e}")
         return None
+
+def get_auth_type(spec: dict) -> str:
+    """
+    Determines the authentication type from the OpenAPI spec's securityDefinitions.
+
+    Args:
+        spec (dict): The OpenAPI specification.
+
+    Returns:
+        str: 'Api-Key' if apiKey auth is defined in Authorization header, 'Bearer' otherwise.
+    """
+    security_defs = spec.get("securityDefinitions", {})
+    for name, definition in security_defs.items():
+        if definition.get("type") == "apiKey" and definition.get("in") == "header" and definition.get("name") == "Authorization":
+            logger.debug(f"Detected ApiKeyAuth in spec: {name}")
+            return "Api-Key"
+    logger.debug("No ApiKeyAuth found in spec, defaulting to Bearer")
+    return "Bearer"
 
 def map_schema_to_tools(schema: dict) -> list:
     """
