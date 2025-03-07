@@ -1,17 +1,15 @@
 {
-    "mcpServers": {
-        "mcp-openapi-proxy": {
-            "command": "uvx",
-            "args": [
-                "--from",
-                "git+https://github.com/matthewhand/mcp-openapi-proxy",
-                "mcp-openapi-proxy"
-            ],
-            "env": {
-                "OPENAPI_SPEC_URL": "https://api.quivr.app/openapi.json",
-                "TOOL_WHITELIST": "/api/v1/documents,/api/v1/chat",
-                "API_KEY": "your_quivr_token_here"
-            }
-        }
+  "mcpServers": {
+    "quivr": {
+      "command": "uvx",
+      "args": [
+        "mcp-openapi-proxy"
+      ],
+      "env": {
+        "OPENAPI_SPEC_URL": "https://api.quivr.app/openapi.json",
+        "TOOL_WHITELIST": "/api/v1/documents,/api/v1/chat",
+        "API_KEY": "your_quivr_token_here"
+      }
     }
+  }
 }

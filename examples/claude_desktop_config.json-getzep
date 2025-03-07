@@ -1,20 +1,17 @@
 {
-    "mcpServers": {
-        "mcp-openapi-proxy": {
-            "command": "uvx",
-            "args": [
-                "--from",
-                "git+https://github.com/matthewhand/mcp-openapi-proxy",
-                "mcp-openapi-proxy"
-            ],
-            "env": {
-                "OPENAPI_SPEC_URL": "file:///home/matthewh/mcp-openapi-proxy/examples/getzep.swagger.json",
-                "TOOL_WHITELIST": "/sessions,/sessions/{sessionId},/sessions-ordered,/sessions/{sessionId}/memory,/sessions/{sessionId}/messages",
-                "API_KEY": "${GETZEP_API_KEY}",
-                "API_AUTH_TYPE": "Api-Key",
-                "SERVER_URL_OVERRIDE": "https://api.getzep.com",
-                "TOOL_NAME_PREFIX": "getzep"
-            }
-        }
+  "mcpServers": {
+    "getzep": {
+      "command": "uvx",
+      "args": [
+        "mcp-openapi-proxy"
+      ],
+      "env": {
+        "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/getzep.swagger.json",
+        "TOOL_WHITELIST": "/sessions",
+        "API_KEY": "${GETZEP_API_KEY}",
+        "API_AUTH_TYPE": "Api-Key",
+        "TOOL_NAME_PREFIX": "zep"
+      }
     }
+  }
 }

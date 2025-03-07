@@ -1,10 +1,8 @@
 {
   "mcpServers": {
-    "mcp-openapi-proxy": {
+    "asana": {
       "command": "uvx",
       "args": [
-        "--from",
-        "git+https://github.com/matthewhand/mcp-openapi-proxy",
         "mcp-openapi-proxy"
       ],
       "env": {

@@ -1,19 +1,17 @@
 {
-    "mcpServers": {
-        "mcp-openapi-proxy": {
-            "command": "uvx",
-            "args": [
-                "--from",
-                "git+https://github.com/matthewhand/mcp-openapi-proxy",
-                "mcp-openapi-proxy"
-            ],
-            "env": {
-                "OPENAPI_SPEC_URL": "http://localhost:3000/openapi.json",
-                "TOOL_WHITELIST": "/api/models,/api/chat/completions",
-                "API_KEY": "your_api_bearer_token_here",
-                "TOOL_NAME_PREFIX": "openwebui",
-                "SERVER_URL_OVERRIDE": "http://localhost:3000"
-            }
-        }
+  "mcpServers": {
+    "openwebui": {
+      "command": "uvx",
+      "args": [
+        "mcp-openapi-proxy"
+      ],
+      "env": {
+        "OPENAPI_SPEC_URL": "http://localhost:3000/openapi.json",
+        "TOOL_WHITELIST": "/api/models,/api/chat/completions",
+        "API_KEY": "your_api_bearer_token_here",
+        "TOOL_NAME_PREFIX": "openwebui",
+        "SERVER_URL_OVERRIDE": "http://localhost:3000"
+      }
     }
+  }
 }
