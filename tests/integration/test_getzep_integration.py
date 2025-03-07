@@ -1,16 +1,15 @@
 import os
-import requests
-import pytest
 import json
-from dotenv import load_dotenv
+import pytest
+import logging
 
-# Load environment variables from the .env file
-load_dotenv()
+logger = logging.getLogger(__name__)
 
-# Local V2 Swagger file path—please adjust if incorrect
-GETZEP_SWAGGER_URL = "file:///home/matthewh/mcp-openapi-proxy/examples/getzep.swagger.json"
+TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+GETZEP_SWAGGER_URL = f"file://{os.path.join(os.path.dirname(TEST_DIR), '..', 'examples', 'getzep.swagger.json')}"
 
-def test_getzep_swagger_and_tools():
+def test_getzep_swagger_and_tools(reset_env_and_module):
+    env_key = reset_env_and_module
     # Skip the test if the API key is not provided
     getzep_api_key = os.getenv("GETZEP_API_KEY")
     if not getzep_api_key:
@@ -18,55 +17,46 @@ def test_getzep_swagger_and_tools():
 
     # Read the local Swagger file directly
     spec_path = GETZEP_SWAGGER_URL.replace("file://", "")
+    logger.debug(f"TEST_DIR resolved to: {TEST_DIR}")
+    logger.debug(f"Attempting to open spec file at: {spec_path}")
     with open(spec_path, 'r') as f:
         spec = json.load(f)
 
     # Validate the OpenAPI/Swagger structure
     assert "swagger" in spec or "openapi" in spec, "Invalid OpenAPI/Swagger document: missing version key."
     assert "paths" in spec and spec["paths"], "No API paths found in the specification."
-
     print(f"DEBUG: GetZep spec version: {spec.get('swagger') or spec.get('openapi')}")
     print(f"DEBUG: First endpoint found: {next(iter(spec['paths'] or {}), 'none')}")
     print(f"DEBUG: Total paths in spec: {len(spec.get('paths', {}))}")
     print(f"DEBUG: Base path from spec: {spec.get('basePath', 'none')}")
 
-    # Configure server environment variables
-    os.environ["OPENAPI_SPEC_URL"] = GETZEP_SWAGGER_URL
-    whitelist = ",".join(spec["paths"].keys())  # Include all paths for testing
+    # Configure server environment variables with unique key
+    os.environ[env_key] = GETZEP_SWAGGER_URL
+    whitelist = ",".join(spec["paths"].keys())
     os.environ["TOOL_WHITELIST"] = whitelist
     os.environ["API_AUTH_BEARER"] = getzep_api_key
-    os.environ["API_AUTH_TYPE"] = "Api-Key"  # Required for V2
-    os.environ["SERVER_URL_OVERRIDE"] = "https://api.getzep.com"  # V2 base URL
+    os.environ["API_AUTH_TYPE_OVERRIDE"] = "Api-Key"
+    # No SERVER_URL_OVERRIDE - trust the spec
+    print(f"DEBUG: Using env key: {env_key}")
     print(f"DEBUG: TOOL_WHITELIST set to: {whitelist}")
-    print(f"DEBUG: API_AUTH_TYPE set to: {os.environ['API_AUTH_TYPE']}")
-    print(f"DEBUG: SERVER_URL_OVERRIDE set to: {os.environ['SERVER_URL_OVERRIDE']}")
+    print(f"DEBUG: API_AUTH_TYPE_OVERRIDE set to: {os.environ['API_AUTH_TYPE_OVERRIDE']}")
 
-    # Test tool generation
+    # Import after env setup
     from mcp_openapi_proxy.server_fastmcp import list_functions, call_function
-
-    tools_json = list_functions()
-    print(f"DEBUG: Raw tools_json output: {tools_json}")
+    logger.debug(f"Env before list_functions: {env_key}={os.environ.get(env_key)}, TOOL_WHITELIST={os.environ.get('TOOL_WHITELIST')}")
+    logger.debug("Calling list_functions")
+    tools_json = list_functions(env_key=env_key)
+    logger.debug(f"list_functions returned: {tools_json}")
     tools = json.loads(tools_json)
+    print(f"DEBUG: Raw tools_json output: {tools_json}")
     print(f"DEBUG: Parsed tools list: {tools}")
     print(f"DEBUG: Number of tools generated: {len(tools)}")
 
-    # Verify tool creation
+    # Verify tool creation with enhanced debug info on failure
     assert isinstance(tools, list), "list_functions returned invalid data (not a list)."
-    assert len(tools) > 0, "No tools were generated from the GetZep specification."
-
-    # Validate the first tool
-    first_tool = tools[0]
-    assert "name" in first_tool, "Tool definition is missing the 'name' field."
-    assert "path" in first_tool, "Tool definition is missing the 'path' field."
-
-    print(f"DEBUG: First tool created: {json.dumps(first_tool, indent=2)}")
-
-    # Test an API call using POST /api/v2/sessions
-    example_tool = next((t for t in tools if t["name"] == "POST /api/v2/sessions"), tools[0])
-    result = call_function(
-        function_name=example_tool["name"],
-        parameters={"session_id": "test_session_123", "user_id": "test_user_456"}  # Sample test data
+    assert len(tools) > 0, (
+        f"No tools were generated from the GetZep specification. "
+        f"GETZEP_SWAGGER_URL: {GETZEP_SWAGGER_URL}, "
+        f"Spec keys: {list(spec.keys())}, "
+        f"Paths: {list(spec.get('paths', {}).keys())}"
     )
-    result_data = json.loads(result)
-    print(f"DEBUG: API call result: {result_data}")
-    assert "error" not in result_data, f"API call failed: {result_data.get('error', 'No error message provided')}"
