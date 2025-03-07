@@ -7,27 +7,20 @@ import requests
 logger = logging.getLogger(__name__)
 
 @pytest.mark.skipif(
-    "箭OPENWEBUI_API_KEY" not in os.environ or os.environ["OPENWEBUI_API_KEY"] == "test_token_placeholder",
+    "OPENWEBUI_API_KEY" not in os.environ or os.environ["OPENWEBUI_API_KEY"] == "test_token_placeholder",
     reason="Valid OPENWEBUI_API_KEY not provided for integration tests"
 )
 @pytest.mark.parametrize("test_mode,params", [
     ("simple", {
         "model": os.environ.get("OPENWEBUI_MODEL", "litellm.llama3.2"),
-        "messages": [{
-            "role": "user",
-            "content": "Hello, what's the meaning of life?"
-        }]
+        "messages": [{"role": "user", "content": "Hello, what's the meaning of life?"}]
     }),
     ("complex", {
         "model": os.environ.get("OPENWEBUI_MODEL", "litellm.llama3.2"),
-        "messages": [{
-            "role": "user",
-            "content": "Explain quantum computing in 3 paragraphs",
-            "name": "physics_student"
-        }, {
-            "role": "system",
-            "content": "You are a physics professor"
-        }],
+        "messages": [
+            {"role": "user", "content": "Explain quantum computing in 3 paragraphs", "name": "physics_student"},
+            {"role": "system", "content": "You are a physics professor"}
+        ],
         "temperature": 0.7,
         "max_tokens": 300,
         "top_p": 0.9,
@@ -36,12 +29,12 @@ logger = logging.getLogger(__name__)
 ])
 def test_chat_completion_modes(test_mode, params, reset_env_and_module):
     env_key = reset_env_and_module
-    # Set up auth and spec from environment
     api_key = os.environ.get("OPENWEBUI_API_KEY", "test_token_placeholder")
     os.environ["API_AUTH_BEARER"] = api_key
     spec_url = "http://localhost:3000/openapi.json"
+    base_url = "http://localhost:3000/"  # Trailing slash
     os.environ[env_key] = spec_url
-    os.environ["SERVER_URL_OVERRIDE"] = "http://localhost:3000"
+    os.environ["SERVER_URL_OVERRIDE"] = base_url
 
     # Check if OpenWebUI is up
     try:
@@ -52,6 +45,28 @@ def test_chat_completion_modes(test_mode, params, reset_env_and_module):
     except (requests.RequestException, json.JSONDecodeError) as e:
         pytest.skip(f"OpenWebUI not available at {spec_url}: {e}")
 
+    # Check available models from /v1/models
+    try:
+        headers = {"Authorization": f"Bearer {api_key}"}
+        models_response = requests.get(f"{base_url}v1/models", headers=headers, timeout=2)
+        models_response.raise_for_status()
+        models_data = models_response.json()
+        logger.debug(f"Raw models response: {json.dumps(models_data, indent=2)}")
+        
+        # Extract model names - adjust based on actual response structure
+        if isinstance(models_data, list):
+            model_names = models_data
+        elif "data" in models_data:
+            model_names = [m.get("id", m.get("name", "")) for m in models_data["data"]]
+        else:
+            model_names = [models_data.get("id", models_data.get("name", ""))]
+        
+        logger.debug(f"Available models: {model_names}")
+        if params["model"] not in model_names:
+            pytest.skip(f"Model {params['model']} not available in {model_names}")
+    except (requests.RequestException, json.JSONDecodeError) as e:
+        pytest.skip(f"Failed to fetch models from {base_url}v1/models: {e}")
+
     from mcp_openapi_proxy.server_fastmcp import list_functions, call_function
 
     logger.debug(f"Env before list_functions: {env_key}={os.environ.get(env_key)}")
@@ -60,7 +75,6 @@ def test_chat_completion_modes(test_mode, params, reset_env_and_module):
     print(f"DEBUG: OpenWebUI tools: {tools_json}")
     assert len(tools) > 0, f"No tools generated from OpenWebUI spec: {tools_json}"
 
-    # Debug what we're filtering
     logger.debug(f"Filtering tools for chat/completions: {[t['name'] for t in tools]}")
     chat_completion_func = next(
         (t["name"] for t in tools if "chat/completions" in t["name"] and t["method"] == "POST"),
