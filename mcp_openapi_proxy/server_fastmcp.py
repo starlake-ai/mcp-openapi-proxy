@@ -15,20 +15,15 @@ import os
 import sys
 import json
 import requests
-import logging
-
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s %(levelname)s %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-logger = logging.getLogger(__name__)
-
-logger.debug(f"Server CWD: {os.getcwd()}")
-logger.debug(f"Server sys.path: {sys.path}")
 
 from mcp.server.fastmcp import FastMCP
 from mcp_openapi_proxy.utils import setup_logging, is_tool_whitelisted, get_auth_type
+
+# Logger sorted via utils, all to stderr, ya wanker
+logger = setup_logging(debug=os.getenv("DEBUG", "").lower() in ("true", "1", "yes"))
+
+logger.debug(f"Server CWD: {os.getcwd()}")
+logger.debug(f"Server sys.path: {sys.path}")
 
 mcp = FastMCP("OpenApiProxy-Fast")
 
