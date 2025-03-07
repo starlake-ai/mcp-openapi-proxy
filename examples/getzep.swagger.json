@@ -1,0 +1,869 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Zep Memory API (V2)",
+    "description": "OpenAPI specification for the Memory component of Zep API V2",
+    "version": "2.0"
+  },
+  "host": "api.getzep.com",
+  "basePath": "/api/v2",
+  "schemes": [
+    "https"
+  ],
+  "securityDefinitions": {
+    "ApiKeyAuth": {
+      "type": "apiKey",
+      "in": "header",
+      "name": "Authorization",
+      "description": "Header authentication of the form Api-Key <token>"
+    }
+  },
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ],
+  "paths": {
+    "/sessions": {
+      "post": {
+        "summary": "Add Session",
+        "description": "Creates a new session.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Request body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "session_id",
+                "user_id"
+              ],
+              "properties": {
+                "session_id": {
+                  "type": "string",
+                  "description": "The unique identifier of the session."
+                },
+                "user_id": {
+                  "type": "string",
+                  "description": "The unique identifier of the user associated with the session"
+                },
+                "fact_rating_instruction": {
+                  "type": "object",
+                  "description": "Deprecated",
+                  "properties": {
+                    "instruction": {
+                      "type": "string"
+                    },
+                    "examples": {
+                      "type": "object",
+                      "properties": {
+                        "high": {
+                          "type": "string"
+                        },
+                        "low": {
+                          "type": "string"
+                        },
+                        "medium": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                "metadata": {
+                  "type": "object",
+                  "description": "Deprecated",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "classifications": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "created_at": {
+                  "type": "string"
+                },
+                "deleted_at": {
+                  "type": "string"
+                },
+                "ended_at": {
+                  "type": "string"
+                },
+                "fact_rating_instruction": {
+                  "type": "object",
+                  "description": "Deprecated",
+                  "properties": {
+                    "instruction": {
+                      "type": "string"
+                    },
+                    "examples": {
+                      "type": "object",
+                      "properties": {
+                        "high": {
+                          "type": "string"
+                        },
+                        "low": {
+                          "type": "string"
+                        },
+                        "medium": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                "facts": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Deprecated"
+                },
+                "id": {
+                  "type": "integer"
+                },
+                "metadata": {
+                  "type": "object",
+                  "description": "Deprecated",
+                  "additionalProperties": {}
+                },
+                "project_uuid": {
+                  "type": "string"
+                },
+                "session_id": {
+                  "type": "string"
+                },
+                "updated_at": {
+                  "type": "string",
+                  "description": "Deprecated"
+                },
+                "user_id": {
+                  "type": "string"
+                },
+                "uuid": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Memory Add Session Request Bad Request Error"
+          },
+          "500": {
+            "description": "Memory Add Session Request Internal Server Error"
+          }
+        }
+      }
+    },
+    "/sessions/{sessionId}": {
+      "get": {
+        "summary": "Get Session",
+        "description": "Returns a session.",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sessionId",
+            "description": "The unique identifier of the session.",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retrieved",
+            "schema": {
+              "$ref": "#/definitions/Session"
+            }
+          },
+          "404": {
+            "description": "Memory Get Session Request Not Found Error"
+          },
+          "500": {
+            "description": "Memory Get Session Request Internal Server Error"
+          }
+        }
+      }
+    },
+    "/sessions-ordered": {
+      "get": {
+        "summary": "Get Sessions",
+        "description": "Returns all sessions.",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "page_number",
+            "in": "query",
+            "type": "integer",
+            "description": "Page number for pagination, starting from 1",
+            "required": false
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "type": "integer",
+            "description": "Number of sessions to retrieve per page.",
+            "required": false
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "type": "string",
+            "description": "Field to order the results by: created_at, updated_at, user_id, session_id.",
+            "required": false
+          },
+          {
+            "name": "asc",
+            "in": "query",
+            "type": "boolean",
+            "description": "Order direction: true for ascending, false for descending.",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retrieved",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "response_count": {
+                  "type": "integer"
+                },
+                "sessions": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/Session"
+                  }
+                },
+                "total_count": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Memory List Sessions Request Bad Request Error"
+          },
+          "500": {
+            "description": "Memory List Sessions Request Internal Server Error"
+          }
+        }
+      }
+    },
+    "/sessions/{sessionId}/memory": {
+      "get": {
+        "summary": "Get Session Memory",
+        "description": "Returns a memory for a given session.",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sessionId",
+            "description": "The ID of the session for which to retrieve memory.",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "lastn",
+            "in": "query",
+            "type": "integer",
+            "description": "The number of most recent memory entries to retrieve.",
+            "required": false
+          },
+          {
+            "name": "minRating",
+            "in": "query",
+            "type": "number",
+            "format": "double",
+            "description": "The minimum rating by which to filter relevant facts.",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retrieved",
+            "schema": {
+              "$ref": "#/definitions/Memory"
+            }
+          },
+          "404": {
+            "description": "Memory Get Request Not Found Error"
+          },
+          "500": {
+            "description": "Memory Get Request Internal Server Error"
+          }
+        }
+      },
+      "post": {
+        "summary": "Add Memory to Session",
+        "description": "Add memory to the specified session.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sessionId",
+            "description": "The ID of the session to which memory should be added.",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Request body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "messages"
+              ],
+              "properties": {
+                "messages": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "content",
+                      "role_type"
+                    ],
+                    "properties": {
+                      "content": {
+                        "type": "string",
+                        "description": "The content of the message."
+                      },
+                      "role_type": {
+                        "type": "string",
+                        "description": "The type of the role (e.g., “user”, “system”).",
+                        "enum": [
+                          "assistant",
+                          "user",
+                          "system",
+                          "function",
+                          "norole"
+                        ]
+                      },
+                      "metadata": {
+                        "type": "object",
+                        "description": "The metadata associated with the message.",
+                        "additionalProperties": {}
+                      },
+                      "role": {
+                        "type": "string",
+                        "description": "Customizable role of the sender of the message (e.g., “john”, “sales_agent”)."
+                      },
+                      "token_count": {
+                        "type": "integer",
+                        "description": "Deprecated"
+                      }
+                    }
+                  }
+                },
+                "fact_instruction": {
+                  "type": "string",
+                  "description": "Deprecated"
+                },
+                "return_context": {
+                  "type": "boolean",
+                  "description": "Optionally return memory context relevant to the most recent messages."
+                },
+                "summary_instruction": {
+                  "type": "string",
+                  "description": "Deprecated"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "context": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Memory Add Request Internal Server Error"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Session",
+        "description": "Deletes a session.",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sessionId",
+            "description": "The ID of the session for which memory should be deleted.",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Memory Delete Request Not Found Error"
+          },
+          "500": {
+            "description": "Memory Delete Request Internal Server Error"
+          }
+        }
+      }
+    },
+    "/sessions/{sessionId}/messages": {
+      "get": {
+        "summary": "Get Messages for Session",
+        "description": "Returns messages for a session.",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sessionId",
+            "description": "Session ID",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "type": "integer",
+            "description": "Limit the number of results returned",
+            "required": false
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "type": "integer",
+            "description": "Cursor for pagination",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retrieved",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "messages": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/Message"
+                  }
+                },
+                "row_count": {
+                  "type": "integer"
+                },
+                "total_count": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Memory Get Session Messages Request Not Found Error"
+          },
+          "500": {
+            "description": "Memory Get Session Messages Request Internal Server Error"
+          }
+        }
+      },
+      "/classify": {
+        "post": {
+          "summary": "Classify Session",
+          "description": "Classifies a session.",
+          "consumes": [
+            "application/json"
+          ],
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "in": "path",
+              "name": "sessionId",
+              "description": "Session ID",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "in": "body",
+              "name": "body",
+              "description": "Request body",
+              "required": true,
+              "schema": {
+                "type": "object",
+                "required": [
+                  "classes",
+                  "name"
+                ],
+                "properties": {
+                  "classes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "description": "The classes to use for classification."
+                    }
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "The name of the classifier."
+                  },
+                  "instruction": {
+                    "type": "string",
+                    "description": "Custom instruction to use for classification."
+                  },
+                  "last_n": {
+                    "type": "integer",
+                    "description": "Defaults to 4\nThe number of session messages to consider for classification. Defaults to 4."
+                  },
+                  "persist": {
+                    "type": "boolean",
+                    "description": "Defaults to true\nDeprecated"
+                  }
+                }
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "class": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "404": {
+              "description": "Memory Classify Session Request Not Found Error"
+            },
+            "500": {
+              "description": "Memory Classify Session Request Internal Server Error"
+            }
+          }
+        }
+      },
+      "/{messageUUID}": {
+        "get": {
+          "summary": "Get Message",
+          "description": "Returns a specific message from a session.",
+          "produces": [
+            "application/json"
+          ],
+          "parameters": [
+            {
+              "in": "path",
+              "name": "sessionId",
+              "description": "Soon to be deprecated as this is not needed.",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "in": "path",
+              "name": "messageUUID",
+              "description": "The UUID of the message.",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Retrieved",
+              "schema": {
+                "$ref": "#/definitions/Message"
+              }
+            },
+            "404": {
+              "description": "Memory Get Session Message Request Not Found Error"
+            },
+            "500": {
+              "description": "Memory Get Session Message Request Internal Server Error"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "Session": {
+      "type": "object",
+      "properties": {
+        "classifications": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "deleted_at": {
+          "type": "string"
+        },
+        "ended_at": {
+          "type": "string"
+        },
+        "fact_rating_instruction": {
+          "type": "object",
+          "description": "Deprecated",
+          "properties": {
+            "instruction": {
+              "type": "string"
+            },
+            "examples": {
+              "type": "object",
+              "properties": {
+                "high": {
+                  "type": "string"
+                },
+                "low": {
+                  "type": "string"
+                },
+                "medium": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "facts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Deprecated"
+        },
+        "id": {
+          "type": "integer"
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Deprecated",
+          "additionalProperties": {}
+        },
+        "project_uuid": {
+          "type": "string"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "string"
+        },
+        "uuid": {
+          "type": "string"
+        }
+      }
+    },
+    "Message": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "string",
+          "description": "The content of the message."
+        },
+        "role_type": {
+          "type": "string",
+          "description": "The type of the role (e.g., “user”, “system”).",
+          "enum": [
+            "assistant",
+            "user",
+            "system",
+            "function",
+            "norole"
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "description": "The timestamp of when the message was created."
+        },
+        "metadata": {
+          "type": "object",
+          "description": "The metadata associated with the message.",
+          "additionalProperties": {}
+        },
+        "role": {
+          "type": "string",
+          "description": "Customizable role of the sender of the message (e.g., “john”, “sales_agent”)."
+        },
+        "token_count": {
+          "type": "integer",
+          "description": "Deprecated"
+        },
+        "updated_at": {
+          "type": "string",
+          "description": "Deprecated"
+        },
+        "uuid": {
+          "type": "string",
+          "description": "The unique identifier of the message."
+        }
+      }
+    },
+    "Memory": {
+      "type": "object",
+      "properties": {
+        "context": {
+          "type": "string"
+        },
+        "facts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Deprecated: Use relevant_facts instead."
+        },
+        "messages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Message"
+          },
+          "description": "A list of message objects, where each message contains a role and content. Only last_n messages will be returned"
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Deprecated",
+          "additionalProperties": {}
+        },
+        "relevant_facts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "content": {
+                "type": "string"
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "fact": {
+                "type": "string"
+              },
+              "uuid": {
+                "type": "string"
+              },
+              "expired_at": {
+                "type": "string"
+              },
+              "invalid_at": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "rating": {
+                "type": "number",
+                "format": "double"
+              },
+              "source_node_name": {
+                "type": "string"
+              },
+              "target_node_name": {
+                "type": "string"
+              },
+              "valid_at": {
+                "type": "string"
+              }
+            }
+          },
+          "description": "Most relevant facts to the recent messages in the session."
+        },
+        "summary": {
+          "type": "object",
+          "description": "Deprecated: Use context string instead.",
+          "properties": {
+            "content": {
+              "type": "string"
+            },
+            "created_at": {
+              "type": "string"
+            },
+            "metadata": {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            "related_message_uuids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "token_count": {
+              "type": "integer"
+            },
+            "uuid": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "ClassificationResult":{
+        "type":"object",
+        "properties":{
+            "class":{
+                "type":"string"
+            },
+            "label":{
+                "type":"string"
+            }
+        }
+    }
+  }
+}
