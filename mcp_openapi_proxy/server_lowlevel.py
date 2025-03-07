@@ -116,6 +116,12 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
             content, log_message = detect_response_type(response_text)
             logger.debug(log_message)
 
+            # Wrap content in TextContent if it's not already, ensuring type is preserved
+            if isinstance(content, dict):
+                final_content = [types.TextContent(type="json", json=content)]
+            else:
+                final_content = [content]
+
         except requests.exceptions.RequestException as e:
             logger.error(f"API request failed: {e}")
             return types.ServerResult(
@@ -125,11 +131,11 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
             )
         
         # Log the final response sent to the client
-        logger.debug(f"Response sent to client: {response_text}")
+        logger.debug(f"Response sent to client: {response_text if isinstance(content, types.TextContent) else json.dumps(content)}")
 
         return types.ServerResult(
             root=types.CallToolResult(
-                content=[content] if content else [types.TextContent(type="text", text=response_text)]
+                content=final_content
             )
         )
     except Exception as e:

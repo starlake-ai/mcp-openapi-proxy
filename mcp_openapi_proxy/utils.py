@@ -13,7 +13,7 @@ import json
 import yaml
 from dotenv import load_dotenv
 from mcp import types
-from typing import Tuple
+from typing import Tuple, Union, Any
 
 # Load environment variables from .env if present
 load_dotenv()
@@ -269,31 +269,22 @@ def map_schema_to_tools(schema: dict) -> list:
         tools.append(tool)
     return tools
 
-def detect_response_type(response_text: str) -> Tuple[types.TextContent, str]:
+def detect_response_type(response_text: str) -> Tuple[Any, str]:
     """
-    Detect the response type (JSON or text) and return the appropriate MCP content object.
+    Detect the response type (JSON or text) and return the appropriate MCP content.
 
     Args:
         response_text (str): The raw response text from the HTTP request.
 
     Returns:
-        Tuple: (content object, log message)
+        Tuple: (content object or dict, log message)
     """
     logger = logging.getLogger(__name__)
-    if not response_text or not isinstance(response_text, str):
-        logger.warning(f"Invalid response text: {response_text}, treating as text")
-        return types.TextContent(type="text", text=str(response_text)), "Invalid response text, defaulting to text"
-
-    # Check for JSON structure: must start with { or [ and end with } or ]
-    response_text = response_text.strip()
-    if not (response_text.startswith(('{', '[')) and response_text.endswith(('}', ']'))):
-        logger.debug(f"Response does not look like JSON (invalid start/end): {response_text[:50]}...")
-        return types.TextContent(type="text", text=response_text), "Response does not resemble JSON, falling back to text"
-
     try:
-        json.loads(response_text)
-        logger.debug(f"Successfully parsed as JSON: {response_text[:50]}...")
-        return types.TextContent(type="json", text=response_text), "Detected JSON response"
-    except json.JSONDecodeError as e:
-        logger.debug(f"Failed to parse as JSON: {e}, response: {response_text[:50]}...")
-        return types.TextContent(type="text", text=response_text), "Failed to parse JSON, falling back to text"
+        json_data = json.loads(response_text)
+        log_message = "Detected JSON response"
+        return json_data, log_message  # Return parsed dict for JSON
+    except json.JSONDecodeError:
+        content = types.TextContent(type="text", text=response_text)
+        log_message = "Detected non-JSON response, falling back to text"
+        return content, log_message
