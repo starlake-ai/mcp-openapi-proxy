@@ -102,6 +102,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                         content=[types.TextContent(type="text", text="Invalid parameters format")]
                     )
                 )
+            # Handle path parameters
             path_params_in_openapi = [
                 param['name'] for param in operation.get('parameters', []) if param['in'] == 'path'
             ]
@@ -216,7 +217,7 @@ def register_functions(spec: Dict) -> List[types.Tool]:
                     param_name = param.get('name')
                     param_in = param.get('in')
                     if param_in in ['path', 'query']:  # Handle path and query params
-                        param_type = param.get('type', 'string')  # Default to string if not specified
+                        param_type = param.get('schema', {}).get('type', 'string')  # Default to string if not specified
                         schema_type = param_type if param_type in ['string', 'integer', 'boolean', 'number'] else 'string'
                         input_schema['properties'][param_name] = {
                             "type": schema_type,
@@ -231,7 +232,7 @@ def register_functions(spec: Dict) -> List[types.Tool]:
                     inputSchema=input_schema,
                 )
                 tools.append(tool)
-                logger.debug(f"Registered function: {function_name} ({method.upper()} {path}) with inputSchema: {json.dumps(input_schema)}")
+                logger.debug(f"Registered function: {function_name} ({method.upper()} {path}) with inputSchema: {json.dumps(inputSchema)}")
             except Exception as e:
                 logger.error(f"Error registering function for {method.upper()} {path}: {e}", exc_info=True)
 
