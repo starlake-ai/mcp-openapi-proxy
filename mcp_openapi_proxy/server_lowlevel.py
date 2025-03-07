@@ -40,9 +40,11 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                 )
             )
         arguments = request.params.arguments or {}
-        logger.debug(f"Function arguments: {arguments}")
+        logger.debug(f"Raw function arguments: {arguments}")
+
         operation_details = lookup_operation_details(function_name, openapi_spec_data)
         if not operation_details:
+            logger.error(f"Could not find OpenAPI operation for function: {function_name}")
             return types.ServerResult(
                 root=types.CallToolResult(
                     content=[types.TextContent(type="text", text=f"Could not find OpenAPI operation for function: {function_name}")]
@@ -83,25 +85,38 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
 
         api_url = f"{base_url.rstrip('/')}/{path.lstrip('/')}"
         path_params = {}
-        if arguments and 'parameters' in arguments:
-            path_params_in_openapi = [
-                param['name'] for param in operation.get('parameters', []) if param['in'] == 'path'
-            ]
-            for param_name in path_params_in_openapi:
-                if param_name in arguments['parameters']:
-                    path_params[param_name] = arguments['parameters'].pop(param_name)
-                    api_url = api_url.replace(f"{{{param_name}}}", str(path_params[param_name]))
         query_params = {}
         headers = {}
         headers.update(get_auth_headers(openapi_spec_data))
         request_body = None
-        if arguments and 'parameters' in arguments:
-            query_params = arguments['parameters'].copy()
+
+        # Extract path and query parameters directly from arguments
+        if isinstance(arguments, dict) and 'parameters' in arguments:
+            params = arguments['parameters']
+            if not isinstance(params, dict):
+                logger.error(f"Expected 'parameters' to be a dict, got: {type(params)}")
+                return types.ServerResult(
+                    root=types.CallToolResult(
+                        content=[types.TextContent(type="text", text="Invalid parameters format")]
+                    )
+                )
+            path_params_in_openapi = [
+                param['name'] for param in operation.get('parameters', []) if param['in'] == 'path'
+            ]
+            for param_name in path_params_in_openapi:
+                if param_name in params:
+                    path_params[param_name] = params.pop(param_name)
+                    api_url = api_url.replace(f"{{{param_name}}}", str(path_params[param_name]))
+            query_params = params  # Remaining params are query params
+        else:
+            logger.debug("No 'parameters' key in arguments, proceeding without query params")
+
         logger.debug(f"API Request URL: {api_url}")
         logger.debug(f"Request Method: {method}")
         logger.debug(f"Path Parameters: {path_params}")
         logger.debug(f"Query Parameters: {query_params}")
         logger.debug(f"Request Headers: {headers}")
+
         try:
             response = requests.request(
                 method=method,
@@ -117,6 +132,12 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
             content, log_message = detect_response_type(response_text)
             logger.debug(log_message)
 
+            # Prepare content for MCP
+            if isinstance(content, dict):
+                final_content = [content]  # Let MCP serialize the dict as JSON
+            else:
+                final_content = [content]
+
         except requests.exceptions.RequestException as e:
             logger.error(f"API request failed: {e}")
             return types.ServerResult(
@@ -126,12 +147,12 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
             )
         
         # Log the final response sent to the client
-        logger.debug(f"Response content type: {content.type}")
-        logger.debug(f"Response sent to client: {content.text}")
+        logger.debug(f"Response content type: {type(content).__name__ if isinstance(content, dict) else content.type}")
+        logger.debug(f"Response sent to client: {json.dumps(content) if isinstance(content, dict) else content.text}")
 
         return types.ServerResult(
             root=types.CallToolResult(
-                content=[content]
+                content=final_content
             )
         )
     except Exception as e:
