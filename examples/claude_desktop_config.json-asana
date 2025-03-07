@@ -10,7 +10,7 @@
       "env": {
         "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/Asana/openapi/refs/heads/master/defs/asana_oas.yaml",
         "SERVER_URL_OVERRIDE": "https://app.asana.com/api/1.0",
-        "TOOL_WHITELIST": "/tasks,/projects,/users",
+        "TOOL_WHITELIST": "/workspaces,/tasks,/projects,/users",
         "API_AUTH_BEARER": "${ASANA_API_KEY}"
       }
     }
