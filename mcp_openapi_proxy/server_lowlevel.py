@@ -20,6 +20,10 @@ from mcp_openapi_proxy.utils import setup_logging, normalize_tool_name, is_tool_
 DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
 logger = setup_logging(debug=DEBUG)
 
+# Response length limit (in characters), 0 for unlimited
+RESPONSE_LIMIT = int(os.getenv("RESPONSE_LIMIT", 5000))
+logger.debug(f"Response length limit set to: {RESPONSE_LIMIT} characters (0 = unlimited)")
+
 tools: List[types.Tool] = []
 openapi_spec_data = None
 
@@ -119,13 +123,24 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                     content=[types.TextContent(type="text", text=json.dumps({"error": f"API request failed: {e}"}, indent=2))]
                 )
             )
+        
+        # Construct the response content
+        response_text = json.dumps({
+            "status_code": response.status_code,
+            "headers": dict(response.headers),
+            "body": response_data
+        }, indent=2)
+
+        # Apply response length limit if set
+        if RESPONSE_LIMIT > 0 and len(response_text) > RESPONSE_LIMIT:
+            truncated_text = response_text[:RESPONSE_LIMIT - 50]  # Leave room for truncation message
+            truncated_text += f"... [Response truncated at {RESPONSE_LIMIT} chars]"
+            logger.debug(f"Response truncated from {len(response_text)} to {RESPONSE_LIMIT} characters")
+            response_text = truncated_text
+
         return types.ServerResult(
             root=types.CallToolResult(
-                content=[types.TextContent(type="text", text=json.dumps({
-                    "status_code": response.status_code,
-                    "headers": dict(response.headers),
-                    "body": response_data
-                }, indent=2))]
+                content=[types.TextContent(type="text", text=response_text)]
             )
         )
     except Exception as e:
