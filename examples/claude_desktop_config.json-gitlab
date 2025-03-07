@@ -1,0 +1,16 @@
+{
+    "mcpServers": {
+        "mcp-openapi-proxy": {
+            "command": "uvx",
+            "args": ["--from", "git+https://github.com/matthewhand/mcp-openapi-proxy", "mcp-openapi-proxy"],
+            "env": {
+                "OPENAPI_SPEC_URL": "https://docs.gitlab.com/ee/api/openapi/openapi.json",
+                "SERVER_URL_OVERRIDE": "https://gitlab.com/api/v4",
+                "TOOL_WHITELIST": "/projects,/issues",
+                "API_AUTH_BEARER": "your-gitlab-token-here",
+                "TOOL_NAME_PREFIX": "gitlab_",
+                "DEBUG": "true"
+            }
+        }
+    }
+}
