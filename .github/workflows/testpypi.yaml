@@ -16,11 +16,11 @@ jobs:
     strategy:
       matrix:
         target:
-          - name: TestPyPI
-            repository_url: https://test.pypi.org/legacy/
-            api_token: ${{ secrets.TEST_PYPI_API_TOKEN }}
-            environment_name: testpypi
-            project_url: https://test.pypi.org/project/mcp-openapi-proxy
+          # - name: TestPyPI
+          #   repository_url: https://test.pypi.org/legacy/
+          #   api_token: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          #   environment_name: testpypi
+          #   project_url: https://test.pypi.org/project/mcp-openapi-proxy
           - name: PyPI
             repository_url: https://upload.pypi.org/legacy/
             api_token: ${{ secrets.PYPI_API_TOKEN }}
