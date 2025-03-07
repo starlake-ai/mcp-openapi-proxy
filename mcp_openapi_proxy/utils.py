@@ -281,9 +281,10 @@ def detect_response_type(response_text: str) -> Tuple[types.TextContent, str]:
     """
     logger = logging.getLogger(__name__)
     try:
-        json.loads(response_text)  # Just validate it's JSON
-        content = types.TextContent(type="text", text=response_text)  # Use raw string with type="text"
-        log_message = "Detected JSON response (sent as text with JSON data)"
+        json_data = json.loads(response_text)  # Validate and parse JSON
+        structured_text = {"text": response_text}  # Wrap in a "text" key like mcp-flowise
+        content = types.TextContent(type="text", text=json.dumps(structured_text))
+        log_message = "Detected JSON response, wrapped in structured text format"
     except json.JSONDecodeError:
         content = types.TextContent(type="text", text=response_text)
         log_message = "Detected non-JSON response, falling back to text"
