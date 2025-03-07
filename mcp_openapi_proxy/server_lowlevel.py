@@ -8,6 +8,7 @@ directly utilizing the spec for tool definitions and invocation.
 import os
 import sys
 import asyncio
+import json
 import requests
 from typing import List, Dict, Any
 from mcp import types
