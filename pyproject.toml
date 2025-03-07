@@ -14,14 +14,14 @@ dependencies = [
   "mcp[cli]>=1.2.0",
   "python-dotenv>=1.0.1",
   "requests>=2.25.0",
-  "fastapi>=0.100.0",
+  "fastapi>=0.100.0",  # For OpenAPI parsing utils if used later, and data validation
   "pydantic>=2.0",
   "prance>=23.6.21.0",
   "openapi-spec-validator>=0.7.1",
 ]
 
 [project.scripts]
-mcp-openapi-proxy = "mcp_openapi_proxy:main"  # Point to __init__.py:main, ya cunt
+mcp-openapi-proxy = "mcp_openapi_proxy:main"  # Correct entry pointing to __init__.py:main
 
 [dependency-groups]
 dev = [
