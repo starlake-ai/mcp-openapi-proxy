@@ -59,15 +59,15 @@ def redact_api_key(key: str) -> str:
 
 def normalize_tool_name(name: str) -> str:
     """
-    Normalizes tool names into a function signature with parameters as separate arguments.
-    For example, 'GET /sessions/{sessionId}/messages/{messageUUID}/extra/{extraId}' becomes
-    'get_sessions_messages_extra(sessionId,messageUUID,extraId)'.
+    Normalizes tool names into a clean function name without parameters.
+    For example, 'GET /sessions/{sessionId}/messages/{messageUUID}' becomes
+    'get_sessions_messages'.
 
     Args:
-        name (str): Raw method and path, e.g., 'GET /sessions/{sessionId}/messages/{messageUUID}/extra/{extraId}'.
+        name (str): Raw method and path, e.g., 'GET /sessions/{sessionId}/messages/{messageUUID}'.
 
     Returns:
-        str: Normalized tool name with parameters as comma-separated arguments in parentheses.
+        str: Normalized tool name without parameters.
     """
     logger = logging.getLogger(__name__)
     if not name or not isinstance(name, str):
@@ -88,18 +88,16 @@ def normalize_tool_name(name: str) -> str:
         return f"{method}_unknown"
 
     func_name = method
-    params = []
     for part in path_parts:
         if "{" in part and "}" in part:
-            param = part.strip("{}")
-            params.append(param)
+            continue  # Skip params, they'll go in inputSchema
         else:
             func_name += f"_{part}"
 
-    if params:
-        func_name += f"({','.join(params)})"
-
+    func_name = re.sub(r"[^a-zA-Z0-9_.-]", "_", func_name)
     func_name = re.sub(r"_+", "_", func_name).strip("_")
+    if len(func_name) > 64:
+        func_name = func_name[:64]
 
     logger.debug(f"Normalized tool name from '{name}' to '{func_name}'")
     return func_name or "unknown_tool"

@@ -93,7 +93,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                     api_url = api_url.replace(f"{{{param_name}}}", str(path_params[param_name]))
         query_params = {}
         headers = {}
-        headers.update(get_auth_headers(openapi_spec_data))  # Use centralized auth logic
+        headers.update(get_auth_headers(openapi_spec_data))
         request_body = None
         if arguments and 'parameters' in arguments:
             query_params = arguments['parameters'].copy()
@@ -177,24 +177,35 @@ def register_functions(spec: Dict) -> List[types.Tool]:
             try:
                 function_name = normalize_tool_name(f"{method.upper()} {path}")
                 description = operation.get('summary', operation.get('description', 'No description available'))
+
+                # Build inputSchema from operation parameters
                 input_schema = {
                     "type": "object",
-                    "properties": {
-                        "parameters": {
-                            "type": "object",
-                            "description": "Parameters for the API call",
-                            "additionalProperties": True
-                        }
-                    },
+                    "properties": {},
+                    "required": [],
                     "additionalProperties": False
                 }
+                parameters = operation.get('parameters', [])
+                for param in parameters:
+                    param_name = param.get('name')
+                    param_in = param.get('in')
+                    if param_in in ['path', 'query']:  # Only handle path and query params for now
+                        param_type = param.get('type', 'string')  # Default to string if not specified
+                        schema_type = param_type if param_type in ['string', 'integer', 'boolean', 'number'] else 'string'
+                        input_schema['properties'][param_name] = {
+                            "type": schema_type,
+                            "description": param.get('description', f"{param_in} parameter {param_name}")
+                        }
+                        if param.get('required', False):
+                            input_schema['required'].append(param_name)
+
                 tool = types.Tool(
                     name=function_name,
                     description=description,
                     inputSchema=input_schema,
                 )
                 tools.append(tool)
-                logger.debug(f"Registered function: {function_name} ({method.upper()} {path})")
+                logger.debug(f"Registered function: {function_name} ({method.upper()} {path}) with inputSchema: {json.dumps(input_schema)}")
             except Exception as e:
                 logger.error(f"Error registering function for {method.upper()} {path}: {e}", exc_info=True)
 
