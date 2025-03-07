@@ -20,13 +20,11 @@ def main():
     - Low-Level Server (default, dynamic tools from OpenAPI spec)
     - FastMCP Server (OPENAPI_SIMPLE_MODE=true, static tools)
     """
-    # Configure logging
     DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
     logger = setup_logging(debug=DEBUG)
 
     logger.debug("Starting mcp_openapi_proxy package entry point.")
 
-    # Default to Low-Level Mode unless SIMPLE_MODE is explicitly enabled
     OPENAPI_SIMPLE_MODE = os.getenv("OPENAPI_SIMPLE_MODE", "false").lower() in ("true", "1", "yes")
     if OPENAPI_SIMPLE_MODE:
         logger.debug("OPENAPI_SIMPLE_MODE is enabled. Launching FastMCP Server.")
@@ -37,7 +35,6 @@ def main():
         from mcp_openapi_proxy.server_lowlevel import run_server
         selected_server = run_server
 
-    # Run the selected server
     try:
         selected_server()
     except Exception as e:

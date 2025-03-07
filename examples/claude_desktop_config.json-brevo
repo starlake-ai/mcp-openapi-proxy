@@ -7,7 +7,7 @@
                 "OPENAPI_SPEC_URL": "https://api.brevo.com/v3/openapi.json",
                 "SERVER_URL_OVERRIDE": "https://api.brevo.com/v3",
                 "TOOL_WHITELIST": "/smtp/email,/contacts",
-                "API_AUTH_BEARER": "your-brevo-api-key-here",
+                "API_KEY": "your-brevo-api-key-here",
                 "TOOL_NAME_PREFIX": "brevo_",
                 "DEBUG": "true"
             }

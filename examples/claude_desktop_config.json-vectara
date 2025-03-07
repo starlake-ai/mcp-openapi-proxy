@@ -10,7 +10,7 @@
       "env": {
         "OPENAPI_SPEC_URL": "https://docs.vectara.com/vectara-oas.yaml",
         "TOOL_WHITELIST": "/v1/search",
-        "API_AUTH_BEARER": "your_vectara_token_here",
+        "API_KEY": "your_vectara_token_here",
         "TOOL_NAME_PREFIX": "vectara"
       }
     }

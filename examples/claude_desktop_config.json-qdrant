@@ -10,7 +10,7 @@
       "env": {
         "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/qdrant/qdrant/master/docs/redoc/master/openapi.json",
         "TOOL_WHITELIST": "/collections,/collections/{collection_name}/points/search,/collections/{collection_name}/points",
-        "API_AUTH_BEARER": "your_qdrant_token_here",
+        "API_KEY": "your_qdrant_token_here",
         "TOOL_NAME_PREFIX": "qdrant"
       }
     }

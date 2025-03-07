@@ -37,7 +37,7 @@ To incorporate **mcp-openapi-proxy** into your MCP ecosystem, configure it withi
             "args": ["mcp-openapi-proxy"],
             "env": {
                 "OPENAPI_SPEC_URL": "${OPENAPI_SPEC_URL}",
-                "API_AUTH_BEARER": "",
+                "API_KEY": "",
                 "TOOL_WHITELIST": "",
                 "TOOL_NAME_PREFIX": ""
             }
@@ -101,7 +101,7 @@ Update your MCP ecosystem configuration as follows:
             "env": {
                 "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/getzep.swagger.json",
                 "TOOL_WHITELIST": "/sessions,/sessions/{sessionId},/sessions-ordered,/sessions/{sessionId}/memory,/sessions/{sessionId}/messages",
-                "API_AUTH_BEARER": "<your_getzep_api_key>",
+                "API_KEY": "<your_getzep_api_key>",
                 "API_AUTH_TYPE": "Api-Key",
                 "SERVER_URL_OVERRIDE": "https://api.getzep.com",
                 "TOOL_NAME_PREFIX": "getzep"
@@ -113,7 +113,7 @@ Update your MCP ecosystem configuration as follows:
 
 - **OPENAPI_SPEC_URL**: Points to the GetZep Swagger specification.
 - **TOOL_WHITELIST**: Limits tools to specific endpoints (e.g., `/sessions`, `/sessions/{sessionId}/memory`).
-- **API_AUTH_BEARER**: Your GetZep API key (replace `<your_getzep_api_key>`).
+- **API_KEY**: Your GetZep API key (replace `<your_getzep_api_key>`).
 - **API_AUTH_TYPE**: Specifies `Api-Key` for GetZep’s authentication.
 - **SERVER_URL_OVERRIDE**: Sets the base URL to GetZep’s API.
 - **TOOL_NAME_PREFIX**: Prepends `getzep` to tool names (e.g., `getzep_sessions`).
@@ -137,7 +137,7 @@ This configuration generates tools such as:
 Run the server with `uvx` to verify:
 
 ```bash
-OPENAPI_SPEC_URL="https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/getzep.swagger.json" API_AUTH_BEARER="<your_getzep_api_key>" uvx mcp-openapi-proxy
+OPENAPI_SPEC_URL="https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/getzep.swagger.json" API_KEY="<your_getzep_api_key>" uvx mcp-openapi-proxy
 ```
 
 Additional examples (e.g., OpenWebUI, Fly.io) will be added incrementally to this section over time.

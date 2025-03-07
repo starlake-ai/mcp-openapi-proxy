@@ -7,7 +7,7 @@
                 "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/Azure/azure-rest-api-specs/master/specification/storage/resource-manager/Microsoft.Storage/stable/2021-08-01/blob.json",
                 "SERVER_URL_OVERRIDE": "https://management.azure.com",
                 "TOOL_WHITELIST": "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{accountName}/blobServices",
-                "API_AUTH_BEARER": "your-azure-access-token-here",
+                "API_KEY": "your-azure-access-token-here",
                 "TOOL_NAME_PREFIX": "azure_",
                 "DEBUG": "true"
             }

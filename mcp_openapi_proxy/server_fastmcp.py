@@ -7,8 +7,8 @@ Configuration is controlled via environment variables:
 - OPENAPI_SPEC_URL_<hash>: Unique URL per test, falls back to OPENAPI_SPEC_URL.
 - TOOL_WHITELIST: Comma-separated list of allowed endpoint paths.
 - SERVER_URL_OVERRIDE: (Optional) Overrides the base URL from the OpenAPI spec.
-- API_AUTH_BEARER: (Optional) Token for endpoints requiring authentication.
-- API_AUTH_TYPE_OVERRIDE: (Optional) 'Bearer' or 'Api-Key'.
+- API_KEY: (Optional) Token for endpoints requiring authentication.
+- API_AUTH_TYPE: (Optional) 'Bearer', 'Api-Key', etc.
 """
 
 import os
@@ -17,48 +17,14 @@ import json
 import requests
 
 from mcp.server.fastmcp import FastMCP
-from mcp_openapi_proxy.utils import setup_logging, is_tool_whitelisted, get_auth_type
+from mcp_openapi_proxy.utils import setup_logging, is_tool_whitelisted, fetch_openapi_spec, get_auth_headers
 
-# Logger sorted via utils, all to stderr, ya wanker
 logger = setup_logging(debug=os.getenv("DEBUG", "").lower() in ("true", "1", "yes"))
 
 logger.debug(f"Server CWD: {os.getcwd()}")
 logger.debug(f"Server sys.path: {sys.path}")
 
 mcp = FastMCP("OpenApiProxy-Fast")
-
-def fetch_openapi_spec(spec_url: str) -> dict:
-    logger.debug(f"Starting fetch_openapi_spec with spec_url: {spec_url}")
-    if not spec_url:
-        logger.error("spec_url is empty or None")
-        return None
-    logger.debug(f"Current CWD in fetch_openapi_spec: {os.getcwd()}")
-    try:
-        if spec_url.startswith("file://"):
-            spec_path = os.path.abspath(spec_url.replace("file://", ""))
-            logger.debug(f"Spec path after file:// strip and abspath: {spec_path}")
-            if not os.path.exists(spec_path):
-                logger.error(f"File does not exist at: {spec_path}")
-                return None
-            logger.debug(f"File exists at: {spec_path}")
-            with open(spec_path, 'r') as f:
-                spec = json.load(f)
-            logger.debug(f"Successfully read local OpenAPI spec from {spec_path}")
-        else:
-            logger.debug(f"Fetching remote spec from {spec_url}")
-            response = requests.get(spec_url)
-            response.raise_for_status()
-            spec = json.loads(response.text)
-            logger.debug(f"Successfully fetched OpenAPI spec from {spec_url}")
-        if not spec:
-            logger.error(f"Spec is empty after loading from {spec_url}")
-            return None
-        logger.debug(f"Spec keys loaded: {list(spec.keys())}")
-        logger.debug(f"Spec paths: {list(spec.get('paths', {}).keys())}")
-        return spec
-    except Exception as e:
-        logger.error(f"Failed to fetch or parse spec from {spec_url}: {e}", exc_info=True)
-        return None
 
 @mcp.tool()
 def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
@@ -70,13 +36,11 @@ def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
     if not spec_url:
         logger.error("No OPENAPI_SPEC_URL or custom env_key configured.")
         return json.dumps([])
-    logger.debug(f"Calling fetch_openapi_spec with: {spec_url}")
     spec = fetch_openapi_spec(spec_url)
     if spec is None:
         logger.error("Spec is None after fetch_openapi_spec")
         return json.dumps([])
     logger.debug(f"Raw spec loaded: {json.dumps(spec, indent=2)}")
-    logger.debug(f"Spec loaded with keys: {list(spec.keys())}")
     paths = spec.get("paths", {})
     logger.debug(f"Paths extracted from spec: {list(paths.keys())}")
     if not paths:
@@ -125,14 +89,11 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
     if not spec_url:
         logger.error("No OPENAPI_SPEC_URL or custom env_key configured.")
         return json.dumps({"error": "OPENAPI_SPEC_URL is not configured"})
-    logger.debug(f"Fetching spec for call_function: {spec_url}")
     spec = fetch_openapi_spec(spec_url)
     if spec is None:
         logger.error("Spec is None for call_function")
         return json.dumps({"error": "Failed to fetch or parse the OpenAPI specification"})
     logger.debug(f"Spec keys for call_function: {list(spec.keys())}")
-    API_AUTH_TYPE = os.getenv("API_AUTH_TYPE_OVERRIDE", get_auth_type(spec))
-    logger.debug(f"API_AUTH_TYPE set to: {API_AUTH_TYPE}")
     function_def = None
     paths = spec.get("paths", {})
     logger.debug(f"Paths for function lookup: {list(paths.keys())}")
@@ -197,6 +158,7 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
     request_params = {}
     request_body = None
     headers = {"Content-Type": "application/json"}
+    headers.update(get_auth_headers(spec))  # Use centralized auth logic
     if parameters is None:
         logger.debug("Parameters is None, using empty dict")
         parameters = {}
@@ -208,10 +170,6 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
         else:
             request_body = parameters
             logger.debug(f"Set request_body: {request_body}")
-    api_auth = os.getenv("API_AUTH_BEARER")
-    if api_auth:
-        headers["Authorization"] = f"{API_AUTH_TYPE} {api_auth}"
-        logger.debug(f"Added Authorization header with {API_AUTH_TYPE}")
     logger.debug(f"Sending request - Method: {function_def['method']}, URL: {api_url}, Headers: {headers}, Params: {request_params}, Body: {request_body}")
     try:
         response = requests.request(
@@ -234,20 +192,19 @@ def run_simple_server():
     if not spec_url:
         logger.error("OPENAPI_SPEC_URL environment variable is required for FastMCP mode.")
         sys.exit(1)
-    
-    # Preload tools, ya fuckin’ genius
+
     logger.debug("Preloading tools from OpenAPI spec...")
     spec = fetch_openapi_spec(spec_url)
     if spec is None:
         logger.error("Failed to fetch OpenAPI spec, no tools to preload.")
         sys.exit(1)
-    list_functions()  # Call it to register tools at startup, ya wanker
-    
+    list_functions()
+
     try:
         logger.debug("Starting MCP server (FastMCP version)...")
         mcp.run(transport="stdio")
     except Exception as e:
-        logger.error("Unhandled exception in MCP server (FastMCP): %s", e, exc_info=True)
+        logger.error(f"Unhandled exception in MCP server (FastMCP): {e}", exc_info=True)
         sys.exit(1)
 
 if __name__ == "__main__":

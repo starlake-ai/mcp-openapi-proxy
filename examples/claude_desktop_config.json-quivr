@@ -10,7 +10,7 @@
             "env": {
                 "OPENAPI_SPEC_URL": "https://api.quivr.app/openapi.json",
                 "TOOL_WHITELIST": "/api/v1/documents,/api/v1/chat",
-                "API_AUTH_BEARER": "your_quivr_token_here"
+                "API_KEY": "your_quivr_token_here"
             }
         }
     }

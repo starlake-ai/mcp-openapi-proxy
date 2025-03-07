@@ -15,30 +15,22 @@ from mcp import types
 from mcp.server.lowlevel import Server
 from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
-from mcp_openapi_proxy.utils import setup_logging, fetch_openapi_spec, normalize_tool_name, is_tool_whitelisted
+from mcp_openapi_proxy.utils import setup_logging, normalize_tool_name, is_tool_whitelisted, fetch_openapi_spec, get_auth_headers
 
-# Configure logging
 DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
 logger = setup_logging(debug=DEBUG)
 
-# Global function (tool) list
 tools: List[types.Tool] = []
-openapi_spec_data = None  # Store OpenAPI spec globally (or use caching)
+openapi_spec_data = None
 
-# Initialize the Low-Level MCP Server
 mcp = Server("OpenApiProxy-LowLevel")
 
 async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResult:
-    """
-    Dispatcher handler that routes CallToolRequest to the appropriate function (tool)
-    and makes the actual API call, now handling path parameters.
-    """
+    """Dispatcher handler that routes CallToolRequest to the appropriate function (tool)."""
     global openapi_spec_data
-
     try:
         function_name = request.params.name
         logger.debug(f"Dispatcher received CallToolRequest for function: {function_name}")
-
         tool = next((tool for tool in tools if tool.name == function_name), None)
         if not tool:
             logger.error(f"Unknown function requested: {function_name}")
@@ -47,10 +39,8 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                     content=[types.TextContent(type="text", text="Unknown function requested")]
                 )
             )
-
         arguments = request.params.arguments
         logger.debug(f"Function arguments: {arguments}")
-
         operation_details = lookup_operation_details(function_name, openapi_spec_data)
         if not operation_details:
             return types.ServerResult(
@@ -58,17 +48,41 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                     content=[types.TextContent(type="text", text=f"Could not find OpenAPI operation for function: {function_name}")]
                 )
             )
-
         path = operation_details['path']
         method = operation_details['method']
         operation = operation_details['operation']
 
-        # Construct API request URL
-        base_url = openapi_spec_data.get('servers', [{}])[0].get('url', '').rstrip('/')
-        api_url = base_url + path
-        path_params = {}  # Dictionary to hold path parameters
+        # Build base URL from spec - Swagger 2.0 or OpenAPI 3.0
+        base_url = ""
+        if 'servers' in openapi_spec_data and openapi_spec_data['servers']:
+            base_url = openapi_spec_data['servers'][0].get('url', '').rstrip('/')
+            logger.debug(f"Using OpenAPI 3.0 servers base URL: {base_url}")
+        elif 'host' in openapi_spec_data:
+            scheme = openapi_spec_data.get('schemes', ['https'])[0]
+            host = openapi_spec_data['host'].strip()
+            base_url = f"{scheme}://{host}"
+            base_path = openapi_spec_data.get('basePath', '').strip('/')
+            if base_path:
+                base_url += f"/{base_path}"
+            logger.debug(f"Using Swagger 2.0 host/basePath base URL: {base_url}")
+        else:
+            logger.critical("No servers or host defined in OpenAPI spec - cannot construct base URL.")
+            return types.ServerResult(
+                root=types.CallToolResult(
+                    content=[types.TextContent(type="text", text=json.dumps({"error": "No base URL defined in spec"}, indent=2))]
+                )
+            )
 
-        # Extract path parameters from arguments and replace in URL
+        if not base_url:
+            logger.critical("Base URL is empty after spec parsing - check spec configuration.")
+            return types.ServerResult(
+                root=types.CallToolResult(
+                    content=[types.TextContent(type="text", text=json.dumps({"error": "Empty base URL from spec"}, indent=2))]
+                )
+            )
+
+        api_url = f"{base_url.rstrip('/')}/{path.lstrip('/')}"
+        path_params = {}
         if arguments and 'parameters' in arguments:
             path_params_in_openapi = [
                 param['name'] for param in operation.get('parameters', []) if param['in'] == 'path'
@@ -77,23 +91,17 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                 if param_name in arguments['parameters']:
                     path_params[param_name] = arguments['parameters'].pop(param_name)
                     api_url = api_url.replace(f"{{{param_name}}}", str(path_params[param_name]))
-
-        # Prepare remaining parameters as query parameters (after removing path params)
         query_params = {}
         headers = {}
-        auth_token = os.getenv("API_AUTH_BEARER")
-        if auth_token:
-            headers["Authorization"] = "Bearer " + auth_token
+        headers.update(get_auth_headers(openapi_spec_data))  # Use centralized auth logic
         request_body = None
-
         if arguments and 'parameters' in arguments:
             query_params = arguments['parameters'].copy()
-
         logger.debug(f"API Request URL: {api_url}")
         logger.debug(f"Request Method: {method}")
         logger.debug(f"Path Parameters: {path_params}")
         logger.debug(f"Query Parameters: {query_params}")
-
+        logger.debug(f"Request Headers: {headers}")
         try:
             response = requests.request(
                 method=method,
@@ -103,32 +111,23 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                 json=request_body if request_body else None
             )
             response.raise_for_status()
-
-            try:
-                response_data = response.json()
-            except json.JSONDecodeError:
-                response_data = response.text
-
-            return types.ServerResult(
-                root=types.CallToolResult(
-                    content=[types.TextContent(type="text", text=json.dumps({
-                        "status_code": response.status_code,
-                        "headers": dict(response.headers),
-                        "body": response_data
-                    }, indent=2))]
-                )
-            )
-
+            response_data = response.json() if response.text else {}
         except requests.exceptions.RequestException as e:
             logger.error(f"API request failed: {e}")
             return types.ServerResult(
                 root=types.CallToolResult(
-                    content=[types.TextContent(type="text", text=json.dumps({
-                        "error": f"API request failed: {e}"
-                    }, indent=2))]
+                    content=[types.TextContent(type="text", text=json.dumps({"error": f"API request failed: {e}"}, indent=2))]
                 )
             )
-
+        return types.ServerResult(
+            root=types.CallToolResult(
+                content=[types.TextContent(type="text", text=json.dumps({
+                    "status_code": response.status_code,
+                    "headers": dict(response.headers),
+                    "body": response_data
+                }, indent=2))]
+            )
+        )
     except Exception as e:
         logger.error(f"Unhandled exception in dispatcher_handler: {e}", exc_info=True)
         return types.ServerResult(
@@ -138,57 +137,57 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
         )
 
 async def list_tools(request: types.ListToolsRequest) -> types.ServerResult:
-    """
-    Handler for ListToolsRequest to list all registered functions (tools).
-    """
+    """Handler for ListToolsRequest to list all registered functions (tools)."""
     logger.debug("Handling list_tools request - start")
     logger.debug(f"Tools list length: {len(tools)}")
     result = types.ServerResult(root=types.ListToolsResult(tools=tools))
     logger.debug("list_tools result prepared")
-    # Force flush stderr to avoid stdio hang, ya wanker
     sys.stderr.flush()
-    logger.debug("list_tools stderr flushed")
     return result
 
 def register_functions(spec: Dict) -> List[types.Tool]:
-    """
-    Register functions (tools) dynamically based on the OpenAPI specification.
-    No longer stores metadata in tool.metadata, relies on spec lookup.
-    """
+    """Register functions (tools) dynamically based on the OpenAPI specification."""
     global tools
-    tools = []  # Clear existing functions before re-registration
+    tools = []
 
-    if not spec or 'paths' not in spec:
-        logger.warning("No paths found in OpenAPI spec, no functions registered.")
+    if not spec:
+        logger.error("OpenAPI spec is None or empty.")
         return tools
 
-    for path, path_item in spec['paths'].items():
-        if not is_tool_whitelisted(path):
-            logger.debug(f"Skipping non-whitelisted path: {path}")
+    if 'paths' not in spec:
+        logger.error("No 'paths' key in OpenAPI spec.")
+        return tools
+
+    logger.debug(f"Spec paths available: {list(spec['paths'].keys())}")
+    filtered_paths = {path: item for path, item in spec['paths'].items() if is_tool_whitelisted(path)}
+    logger.debug(f"Filtered paths: {list(filtered_paths.keys())}")
+
+    if not filtered_paths:
+        logger.warning("No whitelisted paths found in OpenAPI spec after filtering.")
+        return tools
+
+    for path, path_item in filtered_paths.items():
+        if not path_item:
+            logger.debug(f"Empty path item for {path}")
             continue
         for method, operation in path_item.items():
             if method.lower() not in ['get', 'post', 'put', 'delete', 'patch']:
-                continue  # Skip OPTIONS, HEAD etc.
-
+                logger.debug(f"Skipping unsupported method {method} for {path}")
+                continue
             try:
-                # Create a function name from method and path
-                function_name = normalize_tool_name(f"{method.upper()} {path}")  # Normalize function name
-
+                function_name = normalize_tool_name(f"{method.upper()} {path}")
                 description = operation.get('summary', operation.get('description', 'No description available'))
-
-                # Define a generic input schema - you can expand on this later
                 input_schema = {
                     "type": "object",
                     "properties": {
-                        "parameters": {  # Generic 'parameters' field for now
+                        "parameters": {
                             "type": "object",
                             "description": "Parameters for the API call",
-                            "additionalProperties": True  # Allow any properties for parameters
+                            "additionalProperties": True
                         }
                     },
-                    "additionalProperties": False  # No other top-level properties allowed
+                    "additionalProperties": False
                 }
-
                 tool = types.Tool(
                     name=function_name,
                     description=description,
@@ -196,80 +195,64 @@ def register_functions(spec: Dict) -> List[types.Tool]:
                 )
                 tools.append(tool)
                 logger.debug(f"Registered function: {function_name} ({method.upper()} {path})")
-
             except Exception as e:
-                logger.error(f"Error registering function for {method.upper()} {path}: {e}")
+                logger.error(f"Error registering function for {method.upper()} {path}: {e}", exc_info=True)
 
     logger.info(f"Registered {len(tools)} functions from OpenAPI spec.")
     return tools
 
 def lookup_operation_details(function_name: str, spec: Dict) -> Dict or None:
-    """
-    Lookup OpenAPI operation details (path, method, operation) based on function name.
-    """
+    """Lookup OpenAPI operation details (path, method, operation) based on function name."""
     if not spec or 'paths' not in spec:
         return None
-
     for path, path_item in spec['paths'].items():
         for method, operation in path_item.items():
             if method.lower() not in ['get', 'post', 'put', 'delete', 'patch']:
                 continue
-
             current_function_name = normalize_tool_name(f"{method.upper()} {path}")
             if current_function_name == function_name:
-                return {
-                    "path": path,
-                    "method": method.upper(),
-                    "operation": operation
-                }
+                return {"path": path, "method": method.upper(), "operation": operation}
     return None
 
 async def start_server():
-    """
-    Start the Low-Level MCP server.
-    """
+    """Start the Low-Level MCP server."""
     logger.debug("Starting Low-Level MCP server...")
-    try:
-        async with stdio_server() as (read_stream, write_stream):
-            await mcp.run(
-                read_stream,
-                write_stream,
-                initialization_options=InitializationOptions(
-                    server_name="AnyOpenAPIMCP-LowLevel",
-                    server_version="0.1.0",
-                    capabilities=types.ServerCapabilities(),
-                ),
-            )
-    except Exception as e:
-        logger.critical(f"Unhandled exception in MCP server: {e}", exc_info=True)
-        sys.exit(1)
+    async with stdio_server() as (read_stream, write_stream):
+        await mcp.run(
+            read_stream,
+            write_stream,
+            initialization_options=InitializationOptions(
+                server_name="AnyOpenAPIMCP-LowLevel",
+                server_version="0.1.0",
+                capabilities=types.ServerCapabilities(),
+            ),
+        )
 
 def run_server():
-    """
-    Run the Low-Level Any OpenAPI server.
-    Fetches OpenAPI spec, registers functions, and makes it available globally.
-    """
-    global openapi_spec_data  # To store it globally
-
+    """Run the Low-Level Any OpenAPI server."""
+    global openapi_spec_data
     try:
         openapi_url = os.getenv('OPENAPI_SPEC_URL')
         if not openapi_url:
             logger.critical("OPENAPI_SPEC_URL environment variable is required but not set.")
             sys.exit(1)
-        openapi_spec_data = fetch_openapi_spec(openapi_url)  # Fetch and store globally
+
+        openapi_spec_data = fetch_openapi_spec(openapi_url)
         if not openapi_spec_data:
             logger.critical("Failed to fetch or parse OpenAPI specification from OPENAPI_SPEC_URL.")
             sys.exit(1)
         logger.info("OpenAPI specification fetched successfully.")
+        logger.debug(f"Full OpenAPI spec: {json.dumps(openapi_spec_data, indent=2)}")
 
-        # Preload tools before running server, ya fuckin’ genius
-        register_functions(openapi_spec_data)  # Register tools at startup, ya wanker
+        register_functions(openapi_spec_data)
+        logger.debug(f"Tools after registration: {[tool.name for tool in tools]}")
+        if not tools:
+            logger.critical("No valid tools registered. Shutting down.")
+            sys.exit(1)
 
         mcp.request_handlers[types.ListToolsRequest] = list_tools
-        logger.debug("Registered list_tools handler.")
-
         mcp.request_handlers[types.CallToolRequest] = dispatcher_handler
-        logger.debug("Registered dispatcher_handler for CallToolRequest.")
+        logger.debug("Handlers registered.")
 
         asyncio.run(start_server())
     except KeyboardInterrupt:

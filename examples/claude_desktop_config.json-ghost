@@ -7,7 +7,7 @@
                 "OPENAPI_SPEC_URL": "https://your-ghost-instance.com/ghost/api/v3/admin/openapi.json",
                 "SERVER_URL_OVERRIDE": "https://your-ghost-instance.com/ghost/api/v3/admin",
                 "TOOL_WHITELIST": "/posts,/users",
-                "API_AUTH_BEARER": "your-ghost-jwt-here",
+                "API_KEY": "your-ghost-jwt-here",
                 "TOOL_NAME_PREFIX": "ghost_",
                 "DEBUG": "true"
             }

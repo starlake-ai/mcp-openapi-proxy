@@ -1,6 +1,6 @@
 """
 Utility functions for mcp_openapi_proxy, including logging setup,
-OpenAPI fetching, name normalization, and whitelist filtering for tools.
+OpenAPI fetching, name normalization, whitelist filtering, and auth handling.
 """
 
 import os
@@ -19,23 +19,21 @@ OPENAPI_SPEC_URL = os.getenv("OPENAPI_SPEC_URL")
 
 def setup_logging(debug: bool = False) -> logging.Logger:
     """
-    Sets up logging for the application, ALL output to stderr like a proper cunt.
+    Configures logging for the application, directing all output to stderr.
 
     Args:
         debug (bool): If True, sets log level to DEBUG; otherwise, INFO.
 
     Returns:
-        logging.Logger: Configured logger instance, screamin’ to stderr.
+        logging.Logger: Configured logger instance.
     """
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG if debug else logging.INFO)
     logger.propagate = False
-    
-    # Clear any old handlers
+
     for handler in logger.handlers[:]:
         logger.removeHandler(handler)
-    
-    # Setup logging handlers based on debug flag.
+
     if debug:
         stderr_handler = logging.StreamHandler(sys.stderr)
         stderr_handler.setLevel(logging.DEBUG)
@@ -60,26 +58,70 @@ def redact_api_key(key: str) -> str:
     return f"{key[:2]}{'*' * (len(key) - 4)}{key[-2:]}"
 
 def normalize_tool_name(name: str) -> str:
-    """Normalizes tool names to lowercase, replaces non-alphanum with underscores."""
+    """
+    Normalizes tool names into a function signature with parameters as separate arguments.
+    For example, 'GET /sessions/{sessionId}/messages/{messageUUID}/extra/{extraId}' becomes
+    'get_sessions_messages_extra(sessionId,messageUUID,extraId)'.
+
+    Args:
+        name (str): Raw method and path, e.g., 'GET /sessions/{sessionId}/messages/{messageUUID}/extra/{extraId}'.
+
+    Returns:
+        str: Normalized tool name with parameters as comma-separated arguments in parentheses.
+    """
     logger = logging.getLogger(__name__)
     if not name or not isinstance(name, str):
-        logger.warning(f"Invalid tool name input: {name}. Using default 'unknown_tool'.")
+        logger.warning(f"Invalid tool name input: {name}. Defaulting to 'unknown_tool'.")
         return "unknown_tool"
-    normalized = re.sub(r"[^a-zA-Z0-9_]", "_", name).lower()
-    normalized = re.sub(r"_+", "_", normalized)
-    normalized = normalized.strip('_')
-    logger.debug(f"Normalized tool name from '{name}' to '{normalized}'")
-    return normalized or "unknown_tool"
+
+    parts = name.strip().split(" ", 1)
+    if len(parts) != 2:
+        logger.warning(f"Malformed tool name '{name}', expected 'METHOD /path'. Defaulting to 'unknown_tool'.")
+        return "unknown_tool"
+
+    method, path = parts
+    method = method.lower()
+
+    path_parts = [p for p in path.split("/") if p and p not in ("api", "v2")]
+    if not path_parts:
+        logger.warning(f"No valid path segments in '{path}'. Using '{method}_unknown'.")
+        return f"{method}_unknown"
+
+    func_name = method
+    params = []
+    for part in path_parts:
+        if "{" in part and "}" in part:
+            param = part.strip("{}")
+            params.append(param)
+        else:
+            func_name += f"_{part}"
+
+    if params:
+        func_name += f"({','.join(params)})"
+
+    func_name = re.sub(r"_+", "_", func_name).strip("_")
+
+    logger.debug(f"Normalized tool name from '{name}' to '{func_name}'")
+    return func_name or "unknown_tool"
 
 def get_tool_prefix() -> str:
-    """Gets tool name prefix from env, ensures it ends with an underscore."""
+    """Retrieves tool name prefix from environment, ensuring it ends with an underscore."""
     prefix = os.getenv("TOOL_NAME_PREFIX", "")
     if prefix and not prefix.endswith("_"):
         prefix += "_"
     return prefix
 
 def is_tool_whitelisted(endpoint: str) -> bool:
-    """Checks if an endpoint’s in TOOL_WHITELIST, supports exact, prefix, and path params."""
+    """
+    Checks if an endpoint matches any partial path in TOOL_WHITELIST.
+    Supports exact matches, prefix matches, and partial path matches with variables.
+
+    Args:
+        endpoint (str): The endpoint path from the OpenAPI spec (e.g., '/sessions/{sessionId}/messages').
+
+    Returns:
+        bool: True if the endpoint matches any whitelist item partially or exactly, False otherwise.
+    """
     whitelist = os.getenv("TOOL_WHITELIST", "")
     logger.debug(f"Checking whitelist - endpoint: {endpoint}, TOOL_WHITELIST: {whitelist}")
     if not whitelist:
@@ -87,30 +129,44 @@ def is_tool_whitelisted(endpoint: str) -> bool:
         return True
 
     whitelist_items = [item.strip() for item in whitelist.split(",") if item.strip()]
-    if endpoint in whitelist_items:
-        logger.debug(f"Direct match found for {endpoint} in whitelist")
+    if not whitelist_items:
+        logger.debug("TOOL_WHITELIST is empty after splitting, allowing all endpoints.")
         return True
 
+    endpoint_parts = [p for p in endpoint.split("/") if p]  # Split and filter empty
+
     for item in whitelist_items:
-        if not '{' in item and endpoint.startswith(item):
+        # Exact match
+        if endpoint == item:
+            logger.debug(f"Exact match found for {endpoint} in whitelist")
+            return True
+
+        # Prefix match (no vars in item)
+        if '{' not in item and endpoint.startswith(item):
             logger.debug(f"Prefix match found: {item} starts {endpoint}")
             return True
 
-    for item in whitelist_items:
-        if '{' in item and '}' in item:
-            pattern = re.escape(item)
-            pattern = pattern.replace(r"\{", "{").replace(r"\}", "}")
-            pattern = re.sub(r"\{[^}]+\}", r"[^/]+", pattern)
-            pattern = f"^{pattern}(/.*)?$"
-            if re.match(pattern, endpoint):
-                logger.debug(f"Pattern match found for {endpoint} using {item}")
+        # Partial path match with variables
+        item_parts = [p for p in item.split("/") if p]
+        if len(item_parts) <= len(endpoint_parts):
+            match = True
+            for i, item_part in enumerate(item_parts):
+                endpoint_part = endpoint_parts[i]
+                if "{" in item_part and "}" in item_part:
+                    # Variable part, any value matches
+                    continue
+                elif item_part != endpoint_part:
+                    match = False
+                    break
+            if match:
+                logger.debug(f"Partial path match found for {endpoint} using {item}")
                 return True
 
     logger.debug(f"No whitelist match found for {endpoint}")
     return False
 
 def fetch_openapi_spec(spec_url: str) -> dict:
-    """Fetches and parses OpenAPI spec from URL or file, supports JSON/YAML."""
+    """Fetches and parses OpenAPI specification from a URL or file, supporting JSON and YAML formats."""
     logger = logging.getLogger(__name__)
     try:
         if spec_url.startswith("file://"):
@@ -144,15 +200,53 @@ def fetch_openapi_spec(spec_url: str) -> dict:
         logger.error(f"Unexpected error with OpenAPI spec from {spec_url}: {e}")
         return None
 
-def get_auth_type(spec: dict) -> str:
-    """Determines auth type from OpenAPI spec’s securityDefinitions."""
-    security_defs = spec.get("securityDefinitions", {})
+def get_auth_headers(spec: dict, api_key_env: str = "API_KEY") -> dict:
+    """
+    Constructs authorization headers based on spec and environment variables.
+
+    Args:
+        spec (dict): OpenAPI specification.
+        api_key_env (str): Environment variable name for the API key (default: "API_KEY").
+
+    Returns:
+        dict: Headers dictionary with Authorization set appropriately.
+    """
+    headers = {}
+    auth_token = os.getenv(api_key_env)
+    if not auth_token:
+        logger.debug(f"No {api_key_env} set, skipping auth headers.")
+        return headers
+
+    # Check for override first
+    auth_type_override = os.getenv("API_AUTH_TYPE")
+    if auth_type_override:
+        headers["Authorization"] = f"{auth_type_override} {auth_token}"
+        logger.debug(f"Using API_AUTH_TYPE override: Authorization: {auth_type_override} {redact_api_key(auth_token)}")
+        return headers
+
+    # Parse spec’s security definitions
+    security_defs = spec.get('securityDefinitions', {})
     for name, definition in security_defs.items():
-        if definition.get("type") == "apiKey" and definition.get("in") == "header" and definition.get("name") == "Authorization":
-            logger.debug(f"Detected ApiKeyAuth in spec: {name}")
-            return "Api-Key"
-    logger.debug("No ApiKeyAuth found in spec, defaulting to Bearer")
-    return "Bearer"
+        if definition.get('type') == 'apiKey' and definition.get('in') == 'header' and definition.get('name') == 'Authorization':
+            desc = definition.get('description', '')
+            match = re.search(r'(\w+(?:-\w+)*)\s+<token>', desc)
+            if match:
+                prefix = match.group(1)  # e.g., "Api-Key"
+                headers["Authorization"] = f"{prefix} {auth_token}"
+                logger.debug(f"Using apiKey with prefix from spec description: Authorization: {prefix} {redact_api_key(auth_token)}")
+            else:
+                headers["Authorization"] = auth_token
+                logger.debug(f"Using raw apiKey auth from spec: Authorization: {redact_api_key(auth_token)}")
+            return headers
+        elif definition.get('type') == 'oauth2':
+            headers["Authorization"] = f"Bearer {auth_token}"
+            logger.debug(f"Using Bearer auth from spec: Authorization: Bearer {redact_api_key(auth_token)}")
+            return headers
+
+    # Fallback if no clear auth type
+    headers["Authorization"] = auth_token
+    logger.warning(f"No clear auth type in spec, using raw API key: Authorization: {redact_api_key(auth_token)}")
+    return headers
 
 def map_schema_to_tools(schema: dict) -> list:
     """Maps a schema to a list of MCP tools."""
