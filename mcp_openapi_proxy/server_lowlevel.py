@@ -75,8 +75,8 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
             ]
             for param_name in path_params_in_openapi:
                 if param_name in arguments['parameters']:
-                    path_params[param_name] = arguments['parameters'].pop(param_name)  # Remove from arguments as it's a path param
-                    api_url = api_url.replace(f"{{{param_name}}}", str(path_params[param_name]))  # Replace placeholder in URL
+                    path_params[param_name] = arguments['parameters'].pop(param_name)
+                    api_url = api_url.replace(f"{{{param_name}}}", str(path_params[param_name]))
 
         # Prepare remaining parameters as query parameters (after removing path params)
         query_params = {}
@@ -86,7 +86,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
             headers["Authorization"] = "Bearer " + auth_token
         request_body = None
 
-        if arguments and 'parameters' in arguments:  # 'parameters' now only contains query params (after path params removed)
+        if arguments and 'parameters' in arguments:
             query_params = arguments['parameters'].copy()
 
         logger.debug(f"API Request URL: {api_url}")
@@ -141,8 +141,14 @@ async def list_tools(request: types.ListToolsRequest) -> types.ServerResult:
     """
     Handler for ListToolsRequest to list all registered functions (tools).
     """
-    logger.debug("Handling list_tools request.")
-    return types.ServerResult(root=types.ListToolsResult(tools=tools))
+    logger.debug("Handling list_tools request - start")
+    logger.debug(f"Tools list length: {len(tools)}")
+    result = types.ServerResult(root=types.ListToolsResult(tools=tools))
+    logger.debug("list_tools result prepared")
+    # Force flush stderr to avoid stdio hang, ya wanker
+    sys.stderr.flush()
+    logger.debug("list_tools stderr flushed")
+    return result
 
 def register_functions(spec: Dict) -> List[types.Tool]:
     """
@@ -246,10 +252,13 @@ def run_server():
     global openapi_spec_data  # To store it globally
 
     try:
-        openapi_url = os.getenv('OPENAPI_SPEC_URL', 'https://raw.githubusercontent.com/seriousme/fastify-openapi-glue/refs/heads/master/examples/petstore/petstore-openapi.v3.json')
+        openapi_url = os.getenv('OPENAPI_SPEC_URL')
+        if not openapi_url:
+            logger.critical("OPENAPI_SPEC_URL environment variable is required but not set.")
+            sys.exit(1)
         openapi_spec_data = fetch_openapi_spec(openapi_url)  # Fetch and store globally
         if not openapi_spec_data:
-            logger.critical("Failed to fetch or parse OpenAPI specification.")
+            logger.critical("Failed to fetch or parse OpenAPI specification from OPENAPI_SPEC_URL.")
             sys.exit(1)
         logger.info("OpenAPI specification fetched successfully.")
 
