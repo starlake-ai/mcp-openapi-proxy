@@ -20,7 +20,7 @@ from mcp_openapi_proxy.utils import setup_logging, normalize_tool_name, is_tool_
 DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
 logger = setup_logging(debug=DEBUG)
 
-# Response length limit (in characters), 0 for unlimited
+# Response length limit for body content (in characters), 0 for unlimited
 RESPONSE_LIMIT = int(os.getenv("RESPONSE_LIMIT", 5000))
 logger.debug(f"Response length limit set to: {RESPONSE_LIMIT} characters (0 = unlimited)")
 
@@ -125,18 +125,30 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
             )
         
         # Construct the response content
-        response_text = json.dumps({
+        response_dict = {
             "status_code": response.status_code,
             "headers": dict(response.headers),
             "body": response_data
-        }, indent=2)
+        }
+        response_text = json.dumps(response_dict, indent=2)
 
-        # Apply response length limit if set
-        if RESPONSE_LIMIT > 0 and len(response_text) > RESPONSE_LIMIT:
-            truncated_text = response_text[:RESPONSE_LIMIT - 50]  # Leave room for truncation message
-            truncated_text += f"... [Response truncated at {RESPONSE_LIMIT} chars]"
-            logger.debug(f"Response truncated from {len(response_text)} to {RESPONSE_LIMIT} characters")
-            response_text = truncated_text
+        # Check and truncate body content if necessary
+        if RESPONSE_LIMIT > 0:
+            body_text = json.dumps(response_dict["body"], indent=2)
+            if len(body_text) > RESPONSE_LIMIT:
+                truncated_body = json.loads(body_text[:RESPONSE_LIMIT - 50])  # Parse to avoid mid-object cut
+                if isinstance(truncated_body, dict) and "sessions" in truncated_body:
+                    sessions = truncated_body["sessions"]
+                    if len(sessions) > 1:  # Keep at least one session
+                        truncated_body["sessions"] = sessions[:len(sessions)//2]  # Halve sessions as a simple cutoff
+                        truncated_body["truncated"] = True
+                        truncated_body["note"] = f"Truncated at {RESPONSE_LIMIT} chars, showing {len(truncated_body['sessions'])} of {len(sessions)} sessions"
+                    response_dict["body"] = truncated_body
+                    logger.debug(f"Body truncated from {len(body_text)} to {len(json.dumps(response_dict['body'], indent=2))} characters")
+                response_text = json.dumps(response_dict, indent=2)
+
+        # Log the final response sent to the client
+        logger.debug(f"Response sent to client: {response_text}")
 
         return types.ServerResult(
             root=types.CallToolResult(
