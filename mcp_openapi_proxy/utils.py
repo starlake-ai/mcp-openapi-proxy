@@ -269,7 +269,7 @@ def map_schema_to_tools(schema: dict) -> list:
         tools.append(tool)
     return tools
 
-def detect_response_type(response_text: str) -> Tuple[Union[types.JSONContent, types.TextContent], str]:
+def detect_response_type(response_text: str) -> Tuple[types.TextContent, str]:
     """
     Detect the response type (JSON or text) and return the appropriate MCP content object.
 
@@ -282,7 +282,7 @@ def detect_response_type(response_text: str) -> Tuple[Union[types.JSONContent, t
     logger = logging.getLogger(__name__)
     try:
         json.loads(response_text)
-        content = types.JSONContent(type="json", json=response_text)
+        content = types.TextContent(type="json", text=response_text)
         log_message = "Detected JSON response"
     except json.JSONDecodeError:
         content = types.TextContent(type="text", text=response_text)
