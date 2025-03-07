@@ -10,7 +10,8 @@ Configuration is controlled via environment variables:
 - TOOL_WHITELIST: Comma-separated list of allowed endpoint prefixes; supports placeholders (e.g. {name}) which
   are transformed into regex patterns matching one or more alphanumeric characters.
 - SERVER_URL_OVERRIDE: (Optional) Overrides the base URL from the OpenAPI spec.
-- API_AUTH_BEARER: (Optional) Bearer token for endpoints requiring authentication.
+- API_AUTH_BEARER: (Optional) Token for endpoints requiring authentication.
+- API_AUTH_TYPE: (Optional) 'Bearer' or 'Api-Key' - defaults to 'Bearer', ya farkin' cunt!
 
 The server supports dynamic parsing of the OpenAPI document, filtering of endpoints based on the whitelist,
 and executes API calls with the appropriate request parameters.
@@ -28,11 +29,13 @@ from mcp_openapi_proxy.utils import setup_logging, fetch_openapi_spec, is_tool_w
 OPENAPI_SPEC_URL = os.getenv("OPENAPI_SPEC_URL")
 FUNCTION_CONFIG_JSON = os.getenv("OPENAPI_SIMPLE_MODE_FUNCTION_CONFIG")  # JSON configuration for functions (if provided)
 DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
+API_AUTH_TYPE = os.getenv("API_AUTH_TYPE", "Bearer")  # Default to Bearer, ya twat!
 
 # Set up logging with debug level if enabled
 logger = setup_logging(debug=DEBUG)
 logger.debug(f"OpenAPI Spec URL: {OPENAPI_SPEC_URL}")
 logger.debug(f"Function Config JSON: {FUNCTION_CONFIG_JSON}")
+logger.debug(f"API_AUTH_TYPE: {API_AUTH_TYPE}")
 
 # Initialize FastMCP server with a descriptive name
 mcp = FastMCP("OpenApiProxy-Fast")
@@ -170,7 +173,7 @@ def call_function(*, function_name: str, parameters: dict = None) -> str:
     headers = {}
     api_auth = os.getenv("API_AUTH_BEARER")
     if api_auth:
-        headers["Authorization"] = "Bearer " + api_auth
+        headers["Authorization"] = f"{API_AUTH_TYPE} {api_auth}"  # Bearer or Api-Key, ya farkin' genius!
 
     try:
         response = requests.request(
