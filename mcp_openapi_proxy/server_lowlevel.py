@@ -189,7 +189,7 @@ def register_functions(spec: Dict) -> List[types.Tool]:
                 for param in parameters:
                     param_name = param.get('name')
                     param_in = param.get('in')
-                    if param_in in ['path', 'query']:  # Only handle path and query params for now
+                    if param_in in ['path', 'query']:  # Handle path and query params
                         param_type = param.get('type', 'string')  # Default to string if not specified
                         schema_type = param_type if param_type in ['string', 'integer', 'boolean', 'number'] else 'string'
                         input_schema['properties'][param_name] = {
