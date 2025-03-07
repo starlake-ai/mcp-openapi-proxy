@@ -192,7 +192,7 @@ def fetch_openapi_spec(spec_url: str) -> dict:
         logger.error(f"Error fetching OpenAPI spec from {spec_url}: {e}")
         return None
     except (json.JSONDecodeError, yaml.YAMLError) as e:
-        logger.error(f"Error parsing OpenAPI spec from {spec_url}: {e}")
+        logger.error(f"Error parsing OpenAPI spec from {spec_url): {e}")
         return None
     except FileNotFoundError as e:
         logger.error(f"Local file not found for OpenAPI spec at {spec_url}: {e}")
@@ -269,22 +269,22 @@ def map_schema_to_tools(schema: dict) -> list:
         tools.append(tool)
     return tools
 
-def detect_response_type(response_text: str) -> Tuple[types.TextContent, str]:
+def detect_response_type(response_text: str) -> Tuple[Union[dict, types.TextContent], str]:
     """
-    Detect the response type (JSON or text) and return the appropriate MCP content object.
+    Detect the response type (JSON or text) and return the appropriate MCP content.
 
     Args:
         response_text (str): The raw response text from the HTTP request.
 
     Returns:
-        Tuple: (content object, log message)
+        Tuple: (content object or dict for JSON, log message)
     """
     logger = logging.getLogger(__name__)
     try:
-        json.loads(response_text)
-        content = types.TextContent(type="json", text=response_text)
+        json_data = json.loads(response_text)
         log_message = "Detected JSON response"
+        return json_data, log_message  # Return parsed dict for JSON
     except json.JSONDecodeError:
         content = types.TextContent(type="text", text=response_text)
         log_message = "Detected non-JSON response, falling back to text"
-    return content, log_message
+        return content, log_message
