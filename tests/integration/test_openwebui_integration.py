@@ -2,6 +2,7 @@ import os
 import json
 import pytest
 import logging
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -38,21 +39,32 @@ def test_chat_completion_modes(test_mode, params, reset_env_and_module):
     # Set up auth and spec from environment
     api_key = os.environ.get("OPENWEBUI_API_KEY", "test_token_placeholder")
     os.environ["API_AUTH_BEARER"] = api_key
-    os.environ[env_key] = "http://localhost:3000/openapi.json"
+    spec_url = "http://localhost:3000/openapi.json"
+    os.environ[env_key] = spec_url
     os.environ["SERVER_URL_OVERRIDE"] = "http://localhost:3000"
+
+    # Check if OpenWebUI is up
+    try:
+        response = requests.get(spec_url, timeout=2)
+        response.raise_for_status()
+        spec = response.json()
+        logger.debug(f"Raw OpenWebUI spec: {json.dumps(spec, indent=2)}")
+    except (requests.RequestException, json.JSONDecodeError) as e:
+        pytest.skip(f"OpenWebUI not available at {spec_url}: {e}")
 
     from mcp_openapi_proxy.server_fastmcp import list_functions, call_function
 
     logger.debug(f"Env before list_functions: {env_key}={os.environ.get(env_key)}")
-    tools_json = list_functions(env_key=env_key)
+    tools_json = list_functions(env_key=env_key)  # Pass env_key here!
     tools = json.loads(tools_json)
+    print(f"DEBUG: OpenWebUI tools: {tools_json}")
     assert len(tools) > 0, f"No tools generated from OpenWebUI spec: {tools_json}"
 
     chat_completion_func = next(
         (t["name"] for t in tools if "chat.completions" in t["name"] and t["method"] == "POST"),
         None
     )
-    assert chat_completion_func, "No POST chat.completions function found in tools"
+    assert chat_completion_func, f"No POST chat.completions function found in tools: {tools_json}"
 
     logger.info(f"Calling chat completion function: {chat_completion_func} in {test_mode} mode")
     response_json = call_function(function_name=chat_completion_func, parameters=params, env_key=env_key)
