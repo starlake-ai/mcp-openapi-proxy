@@ -2,6 +2,22 @@
 
 **mcp-openapi-proxy** is a Python package that implements a Model Context Protocol (MCP) server, designed to dynamically expose REST APIs—defined by OpenAPI specifications—as MCP tools. This facilitates seamless integration of OpenAPI-described APIs into MCP-based workflows.
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Installation](#installation)
+  - [MCP Ecosystem Integration](#mcp-ecosystem-integration)
+- [Modes of Operation](#modes-of-operation)
+  - [FastMCP Mode (Simple Mode)](#fastmcp-mode-simple-mode)
+  - [Low-Level Mode (Default)](#low-level-mode-default)
+- [Environment Variables](#environment-variables)
+- [Examples](#examples)
+  - [GetZep Example](#getzep-example)
+  - [Fly.io Example](#flyio-example)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
+
 ## Overview
 
 The package offers two operational modes:
@@ -72,7 +88,7 @@ Refer to the **Examples** section below for practical configurations tailored to
 
 ## Examples
 
-This section will expand incrementally with new examples added periodically. Each example demonstrates how to configure **mcp-openapi-proxy** for a specific API, starting with GetZep, which leverages a free cloud API accessible with a GetZep API key.
+This section will expand incrementally with new examples added periodically. Each example demonstrates how to configure **mcp-openapi-proxy** for a specific API, starting with GetZep, which leverages a free cloud API accessible with a GetZep API key, and including a simpler Fly.io setup.
 
 ### GetZep Example
 
@@ -125,7 +141,176 @@ Update your MCP ecosystem configuration as follows:
 This configuration generates tools such as:
 
 ```json
-{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"post_sessions","description":"Add Session","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false}},{"name":"get_sessions","description":"Get Session","inputSchema":{"type":"object","properties":{"sessionId":{"type":"string","description":"Unique identifier of the session"}},"required":["sessionId"],"additionalProperties":false}},{"name":"get_sessions-ordered","description":"Get Sessions","inputSchema":{"type":"object","properties":{"page_number":{"type":"integer","description":"Page number for pagination, starting from 1"},"page_size":{"type":"integer","description":"Number of sessions per page"},"order_by":{"type":"string","description":"Field to order results by: created_at, updated_at, user_id, session_id"},"asc":{"type":"boolean","description":"Order direction: true for ascending, false for descending"}},"required":[],"additionalProperties":false}},{"name":"get_sessions_memory","description":"Get Session Memory","inputSchema":{"type":"object","properties":{"sessionId":{"type":"string","description":"ID of the session to retrieve memory for"},"lastn":{"type":"integer","description":"Number of most recent memory entries to retrieve"},"minRating":{"type":"number","description":"Minimum rating to filter relevant facts"}},"required":["sessionId"],"additionalProperties":false}},{"name":"post_sessions_memory","description":"Add Memory to Session","inputSchema":{"type":"object","properties":{"sessionId":{"type":"string","description":"ID of the session to add memory to"}},"required":["sessionId"],"additionalProperties":false}},{"name":"delete_sessions_memory","description":"Delete Session","inputSchema":{"type":"object","properties":{"sessionId":{"type":"string","description":"ID of the session to delete"}},"required":["sessionId"],"additionalProperties":false}},{"name":"get_sessions_messages","description":"Get Messages for Session","inputSchema":{"type":"object","properties":{"sessionId":{"type":"string","description":"Session ID"},"limit":{"type":"integer","description":"Limit the number of results returned"},"cursor":{"type":"integer","description":"Cursor for pagination"}},"required":["sessionId"],"additionalProperties":false}},{"name":"post_sessions_messages_classify","description":"Classify Session","inputSchema":{"type":"object","properties":{"sessionId":{"type":"string","description":"Session ID"}},"required":["sessionId"],"additionalProperties":false}},{"name":"get_sessions_messages","description":"Get Message","inputSchema":{"type":"object","properties":{"sessionId":{"type":"string","description":"Soon to be deprecated, not needed"},"messageUUID":{"type":"string","description":"UUID of the message"}},"required":["sessionId","messageUUID"],"additionalProperties":false}}]}}
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "result": {
+    "tools": [
+      {
+        "name": "post_sessions",
+        "description": "Add Session",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "get_sessions",
+        "description": "Get Session",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "description": "Unique identifier of the session"
+            }
+          },
+          "required": ["sessionId"],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "get_sessions-ordered",
+        "description": "Get Sessions",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "page_number": {
+              "type": "integer",
+              "description": "Page number for pagination, starting from 1"
+            },
+            "page_size": {
+              "type": "integer",
+              "description": "Number of sessions per page"
+            },
+            "order_by": {
+              "type": "string",
+              "description": "Field to order results by: created_at, updated_at, user_id, session_id"
+            },
+            "asc": {
+              "type": "boolean",
+              "description": "Order direction: true for ascending, false for descending"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "get_sessions_memory",
+        "description": "Get Session Memory",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "description": "ID of the session to retrieve memory for"
+            },
+            "lastn": {
+              "type": "integer",
+              "description": "Number of most recent memory entries to retrieve"
+            },
+            "minRating": {
+              "type": "number",
+              "description": "Minimum rating to filter relevant facts"
+            }
+          },
+          "required": ["sessionId"],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "post_sessions_memory",
+        "description": "Add Memory to Session",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "description": "ID of the session to add memory to"
+            }
+          },
+          "required": ["sessionId"],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "delete_sessions_memory",
+        "description": "Delete Session",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "description": "ID of the session to delete"
+            }
+          },
+          "required": ["sessionId"],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "get_sessions_messages",
+        "description": "Get Messages for Session",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "description": "Session ID"
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Limit the number of results returned"
+            },
+            "cursor": {
+              "type": "integer",
+              "description": "Cursor for pagination"
+            }
+          },
+          "required": ["sessionId"],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "post_sessions_messages_classify",
+        "description": "Classify Session",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "description": "Session ID"
+            }
+          },
+          "required": ["sessionId"],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "get_sessions_messages",
+        "description": "Get Message",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "description": "Soon to be deprecated, not needed"
+            },
+            "messageUUID": {
+              "type": "string",
+              "description": "UUID of the message"
+            }
+          },
+          "required": ["sessionId", "messageUUID"],
+          "additionalProperties": false
+        }
+      }
+    ]
+  }
+}
 ```
 
 #### 4. Testing
@@ -136,7 +321,63 @@ Run the server with `uvx` to verify:
 OPENAPI_SPEC_URL="https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/getzep.swagger.json" API_KEY="<your_getzep_api_key>" uvx mcp-openapi-proxy
 ```
 
-Additional examples (e.g., OpenWebUI, Fly.io) will be added incrementally to this section over time.
+### Fly.io Example
+
+Fly.io provides a simple API for managing machines, ideal for testing with a minimal setup. Obtain an API token from [Fly.io documentation](https://fly.io/docs/hands-on/install-flyctl/).
+
+#### 1. Verify the OpenAPI Specification
+
+Retrieve the Fly.io OpenAPI specification:
+
+```bash
+curl https://raw.githubusercontent.com/abhiaagarwal/peristera/refs/heads/main/fly-machines-gen/fixed_spec.json
+```
+
+Ensure the response is a valid OpenAPI JSON document.
+
+#### 2. Configure mcp-openapi-proxy for Fly.io
+
+Update your MCP ecosystem configuration as follows:
+
+```json
+{
+    "mcpServers": {
+        "flyio": {
+            "command": "uvx",
+            "args": ["mcp-openapi-proxy"],
+            "env": {
+                "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/abhiaagarwal/peristera/refs/heads/main/fly-machines-gen/fixed_spec.json",
+                "SERVER_URL_OVERRIDE": "https://api.machines.dev http://_api.internal:4280",
+                "API_KEY": "<your_flyio_token_here>"
+            }
+        }
+    }
+}
+```
+
+- **OPENAPI_SPEC_URL**: Points to the Fly.io OpenAPI specification.
+- **SERVER_URL_OVERRIDE**: Specifies the Fly.io API endpoints (public and internal).
+- **API_KEY**: Your Fly.io API token (replace `<your_flyio_token_here>`). Alternatively, you can find the API key in `~/.fly/config.yml` under the `access_token` field—simply copy that value as the `API_KEY` for a seamless setup.
+- **Note**: The `access_token` in `~/.fly/config.yml` is pre-configured when you set up Fly.io, making it a quick and easy option.
+
+#### 3. Resulting Tools
+
+This configuration generates tools based on the Fly.io spec (e.g., machine management endpoints). Example tools might include:
+
+- `get_machines` (for listing machines).
+- `post_machines` (for creating machines).
+
+Run `list_tools` to see the exact set.
+
+#### 4. Testing
+
+Run the server with `uvx` to verify:
+
+```bash
+OPENAPI_SPEC_URL="https://raw.githubusercontent.com/abhiaagarwal/peristera/refs/heads/main/fly-machines-gen/fixed_spec.json" API_KEY="<your_flyio_token_here>" uvx mcp-openapi-proxy
+```
+
+Additional examples (e.g., OpenWebUI) will be added incrementally to this section over time.
 
 ## Troubleshooting
 
