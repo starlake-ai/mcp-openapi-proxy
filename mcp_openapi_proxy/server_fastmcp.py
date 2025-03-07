@@ -234,6 +234,15 @@ def run_simple_server():
     if not spec_url:
         logger.error("OPENAPI_SPEC_URL environment variable is required for FastMCP mode.")
         sys.exit(1)
+    
+    # Preload tools, ya fuckin’ genius
+    logger.debug("Preloading tools from OpenAPI spec...")
+    spec = fetch_openapi_spec(spec_url)
+    if spec is None:
+        logger.error("Failed to fetch OpenAPI spec, no tools to preload.")
+        sys.exit(1)
+    list_functions()  # Call it to register tools at startup, ya wanker
+    
     try:
         logger.debug("Starting MCP server (FastMCP version)...")
         mcp.run(transport="stdio")
