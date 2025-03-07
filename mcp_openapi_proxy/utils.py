@@ -31,18 +31,20 @@ def setup_logging(debug: bool = False) -> logging.Logger:
     logger.setLevel(logging.DEBUG if debug else logging.INFO)
     logger.propagate = False
     
-    # Clear any old handlers, ya wanker
+    # Clear any old handlers
     for handler in logger.handlers[:]:
         logger.removeHandler(handler)
     
-    # Stderr handler, all levels, no bullshit
-    stderr_handler = logging.StreamHandler(sys.stderr)
-    stderr_handler.setLevel(logging.DEBUG if debug else logging.INFO)
-    formatter = logging.Formatter("[%(levelname)s] %(asctime)s - %(message)s")
-    stderr_handler.setFormatter(formatter)
-    logger.addHandler(stderr_handler)
-    
-    logger.debug("Logging initialized, all shit goin’ to stderr like it fuckin’ should!")
+    # Setup logging handlers based on debug flag.
+    if debug:
+        stderr_handler = logging.StreamHandler(sys.stderr)
+        stderr_handler.setLevel(logging.DEBUG)
+        formatter = logging.Formatter("[%(levelname)s] %(asctime)s - %(message)s")
+        stderr_handler.setFormatter(formatter)
+        logger.addHandler(stderr_handler)
+        logger.debug("Logging initialized, all output to stderr")
+    else:
+        logger.addHandler(logging.NullHandler())
     return logger
 
 DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
