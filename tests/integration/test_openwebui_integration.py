@@ -7,7 +7,7 @@ import requests
 logger = logging.getLogger(__name__)
 
 @pytest.mark.skipif(
-    "OPENWEBUI_API_KEY" not in os.environ or os.environ["OPENWEBUI_API_KEY"] == "test_token_placeholder",
+    "箭OPENWEBUI_API_KEY" not in os.environ or os.environ["OPENWEBUI_API_KEY"] == "test_token_placeholder",
     reason="Valid OPENWEBUI_API_KEY not provided for integration tests"
 )
 @pytest.mark.parametrize("test_mode,params", [
@@ -55,16 +55,18 @@ def test_chat_completion_modes(test_mode, params, reset_env_and_module):
     from mcp_openapi_proxy.server_fastmcp import list_functions, call_function
 
     logger.debug(f"Env before list_functions: {env_key}={os.environ.get(env_key)}")
-    tools_json = list_functions(env_key=env_key)  # Pass env_key here!
+    tools_json = list_functions(env_key=env_key)
     tools = json.loads(tools_json)
     print(f"DEBUG: OpenWebUI tools: {tools_json}")
     assert len(tools) > 0, f"No tools generated from OpenWebUI spec: {tools_json}"
 
+    # Debug what we're filtering
+    logger.debug(f"Filtering tools for chat/completions: {[t['name'] for t in tools]}")
     chat_completion_func = next(
-        (t["name"] for t in tools if "chat.completions" in t["name"] and t["method"] == "POST"),
+        (t["name"] for t in tools if "chat/completions" in t["name"] and t["method"] == "POST"),
         None
     )
-    assert chat_completion_func, f"No POST chat.completions function found in tools: {tools_json}"
+    assert chat_completion_func, f"No POST chat/completions function found in tools: {tools_json}"
 
     logger.info(f"Calling chat completion function: {chat_completion_func} in {test_mode} mode")
     response_json = call_function(function_name=chat_completion_func, parameters=params, env_key=env_key)
