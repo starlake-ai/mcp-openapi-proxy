@@ -50,13 +50,13 @@ def list_functions() -> str:
         error_msg = "OPENAPI_SPEC_URL is not configured."
         logger.error(error_msg)
         return json.dumps({"error": error_msg})
-    
+
     spec = fetch_openapi_spec(OPENAPI_SPEC_URL)
     if not spec:
         error_msg = "Failed to fetch or parse the OpenAPI specification."
         logger.error(error_msg)
         return json.dumps({"error": error_msg})
-    
+
     functions = []
     # Iterate over all paths defined in the OpenAPI spec and filter based on TOOL_WHITELIST
     for path, path_item in spec.get("paths", {}).items():
@@ -96,13 +96,13 @@ def call_function(*, function_name: str, parameters: dict = None) -> str:
         error_msg = "OPENAPI_SPEC_URL is not configured."
         logger.error(error_msg)
         return json.dumps({"error": error_msg})
-    
+
     spec = fetch_openapi_spec(OPENAPI_SPEC_URL)
     if not spec:
         error_msg = "Failed to fetch or parse the OpenAPI specification."
         logger.error(error_msg)
         return json.dumps({"error": error_msg})
-    
+
     function_def = None
     # Locate the function definition within the OpenAPI spec
     for path, path_item in spec.get("paths", {}).items():
@@ -120,34 +120,43 @@ def call_function(*, function_name: str, parameters: dict = None) -> str:
                 break
         if function_def:
             break
-    
+
     if not function_def:
         error_msg = f"Function '{function_name}' not found in the OpenAPI specification."
         logger.error(error_msg)
         return json.dumps({"error": error_msg})
-    
+
     # Enforce whitelist filtering; only proceed if the endpoint is whitelisted
     if not is_tool_whitelisted(function_def["path"]):
         error_msg = f"Access to function '{function_name}' is not allowed."
         logger.error(error_msg)
         return json.dumps({"error": error_msg})
-    
-    # Determine the base URL for API calls, with optional override
+
+    # Determine the base URL for API calls, with optional override or spec fallback
     SERVER_URL_OVERRIDE = os.getenv("SERVER_URL_OVERRIDE")
     if SERVER_URL_OVERRIDE:
         override_urls = SERVER_URL_OVERRIDE.strip().split()
         base_url = override_urls[0] if override_urls else ""
         logger.debug(f"Using SERVER_URL_OVERRIDE, base_url set to: {base_url}")
     else:
-        servers = spec.get("servers", [{}])
-        base_url = servers[0].get("url", "") if servers else ""
+        # Try OpenAPI 3.0 'servers' first
+        servers = spec.get("servers", [])
+        if servers:
+            base_url = servers[0].get("url", "")
+            logger.debug(f"Using base_url from OpenAPI 3.0 servers: {base_url}")
+        else:
+            # Fallback to Swagger 2.0 'schemes' and 'basePath'
+            schemes = spec.get("schemes", ["https"])  # Default to https if no schemes, ya twat
+            base_path = spec.get("basePath", "")
+            base_url = f"{schemes[0]}://example.com{base_path}"  # Placeholder domain, ya cunt
+            logger.debug(f"Using Swagger 2.0 fallback base_url: {base_url}")
         if not base_url:
-            logger.warning("No base server URL found in the OpenAPI specification; using empty string.")
-        logger.debug(f"Using base_url from specification: {base_url}")
-    
+            logger.warning("No valid base URL found in spec or override; using empty string.")
+            base_url = ""
+
     api_url = base_url.rstrip("/") + function_def["path"]
     logger.debug(f"Constructed API URL: {api_url}")
-    
+
     # Prepare request parameters or body based on the HTTP method
     request_params = {}
     request_body = None
@@ -157,12 +166,12 @@ def call_function(*, function_name: str, parameters: dict = None) -> str:
         else:
             request_body = parameters  # Non-GET method: use JSON body
     logger.debug(f"Request params: {request_params}, Request body: {request_body}")
-    
+
     headers = {}
     api_auth = os.getenv("API_AUTH_BEARER")
     if api_auth:
         headers["Authorization"] = "Bearer " + api_auth
-    
+
     try:
         response = requests.request(
             method=function_def["method"],
