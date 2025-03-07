@@ -76,6 +76,8 @@ This section will expand incrementally with new examples added periodically. Eac
 
 ### GetZep Example
 
+![image](https://github.com/user-attachments/assets/6ae7f708-9494-41a1-9075-e685f2cd8873)
+
 GetZep provides a free cloud API for memory management, making it an excellent starting point for testing. Obtain an API key from [GetZep's documentation](https://docs.getzep.com/).
 
 #### 1. Verify the OpenAPI Specification
@@ -100,7 +102,7 @@ Update your MCP ecosystem configuration as follows:
             "args": ["mcp-openapi-proxy"],
             "env": {
                 "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/getzep.swagger.json",
-                "TOOL_WHITELIST": "/sessions,/sessions/{sessionId},/sessions-ordered,/sessions/{sessionId}/memory,/sessions/{sessionId}/messages",
+                "TOOL_WHITELIST": "/sessions",
                 "API_KEY": "<your_getzep_api_key>",
                 "API_AUTH_TYPE": "Api-Key",
                 "SERVER_URL_OVERRIDE": "https://api.getzep.com",
@@ -123,13 +125,7 @@ Update your MCP ecosystem configuration as follows:
 This configuration generates tools such as:
 
 ```json
-[
-    {"name": "getzep_sessions", "description": "List all sessions"},
-    {"name": "getzep_sessions_sessionid", "description": "Get a specific session by ID"},
-    {"name": "getzep_sessions_ordered", "description": "List sessions in order"},
-    {"name": "getzep_sessions_sessionid_memory", "description": "Retrieve memory for a session"},
-    {"name": "getzep_sessions_sessionid_messages", "description": "Get messages for a session"}
-]
+{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"post_sessions","description":"Add Session","inputSchema":{"type":"object","properties":{},"required":[],"additionalProperties":false}},{"name":"get_sessions","description":"Get Session","inputSchema":{"type":"object","properties":{"sessionId":{"type":"string","description":"Unique identifier of the session"}},"required":["sessionId"],"additionalProperties":false}},{"name":"get_sessions-ordered","description":"Get Sessions","inputSchema":{"type":"object","properties":{"page_number":{"type":"integer","description":"Page number for pagination, starting from 1"},"page_size":{"type":"integer","description":"Number of sessions per page"},"order_by":{"type":"string","description":"Field to order results by: created_at, updated_at, user_id, session_id"},"asc":{"type":"boolean","description":"Order direction: true for ascending, false for descending"}},"required":[],"additionalProperties":false}},{"name":"get_sessions_memory","description":"Get Session Memory","inputSchema":{"type":"object","properties":{"sessionId":{"type":"string","description":"ID of the session to retrieve memory for"},"lastn":{"type":"integer","description":"Number of most recent memory entries to retrieve"},"minRating":{"type":"number","description":"Minimum rating to filter relevant facts"}},"required":["sessionId"],"additionalProperties":false}},{"name":"post_sessions_memory","description":"Add Memory to Session","inputSchema":{"type":"object","properties":{"sessionId":{"type":"string","description":"ID of the session to add memory to"}},"required":["sessionId"],"additionalProperties":false}},{"name":"delete_sessions_memory","description":"Delete Session","inputSchema":{"type":"object","properties":{"sessionId":{"type":"string","description":"ID of the session to delete"}},"required":["sessionId"],"additionalProperties":false}},{"name":"get_sessions_messages","description":"Get Messages for Session","inputSchema":{"type":"object","properties":{"sessionId":{"type":"string","description":"Session ID"},"limit":{"type":"integer","description":"Limit the number of results returned"},"cursor":{"type":"integer","description":"Cursor for pagination"}},"required":["sessionId"],"additionalProperties":false}},{"name":"post_sessions_messages_classify","description":"Classify Session","inputSchema":{"type":"object","properties":{"sessionId":{"type":"string","description":"Session ID"}},"required":["sessionId"],"additionalProperties":false}},{"name":"get_sessions_messages","description":"Get Message","inputSchema":{"type":"object","properties":{"sessionId":{"type":"string","description":"Soon to be deprecated, not needed"},"messageUUID":{"type":"string","description":"UUID of the message"}},"required":["sessionId","messageUUID"],"additionalProperties":false}}]}}
 ```
 
 #### 4. Testing
