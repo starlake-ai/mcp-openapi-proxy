@@ -28,7 +28,6 @@ openapi_spec_data = None  # Store OpenAPI spec globally (or use caching)
 # Initialize the Low-Level MCP Server
 mcp = Server("OpenApiProxy-LowLevel")
 
-
 async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResult:
     """
     Dispatcher handler that routes CallToolRequest to the appropriate function (tool)
@@ -138,14 +137,12 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
             )
         )
 
-
 async def list_tools(request: types.ListToolsRequest) -> types.ServerResult:
     """
     Handler for ListToolsRequest to list all registered functions (tools).
     """
     logger.debug("Handling list_tools request.")
     return types.ServerResult(root=types.ListToolsResult(tools=tools))
-
 
 def register_functions(spec: Dict) -> List[types.Tool]:
     """
@@ -200,7 +197,6 @@ def register_functions(spec: Dict) -> List[types.Tool]:
     logger.info(f"Registered {len(tools)} functions from OpenAPI spec.")
     return tools
 
-
 def lookup_operation_details(function_name: str, spec: Dict) -> Dict or None:
     """
     Lookup OpenAPI operation details (path, method, operation) based on function name.
@@ -222,7 +218,6 @@ def lookup_operation_details(function_name: str, spec: Dict) -> Dict or None:
                 }
     return None
 
-
 async def start_server():
     """
     Start the Low-Level MCP server.
@@ -240,9 +235,8 @@ async def start_server():
                 ),
             )
     except Exception as e:
-        logger.critical(f"Unhandled exception in MCP server: {e}", e)
+        logger.critical(f"Unhandled exception in MCP server: {e}", exc_info=True)
         sys.exit(1)
-
 
 def run_server():
     """
@@ -252,32 +246,28 @@ def run_server():
     global openapi_spec_data  # To store it globally
 
     try:
-        openapi_url = os.getenv('OPENAPI_SPEC_URL', 'https://raw.githubusercontent.com/seriousme/fastify-openapi-glue/refs/heads/master/examples/petstore/petstore-openapi.v3.json')  # Example URL
+        openapi_url = os.getenv('OPENAPI_SPEC_URL', 'https://raw.githubusercontent.com/seriousme/fastify-openapi-glue/refs/heads/master/examples/petstore/petstore-openapi.v3.json')
         openapi_spec_data = fetch_openapi_spec(openapi_url)  # Fetch and store globally
         if not openapi_spec_data:
-            raise ValueError("Failed to fetch or parse OpenAPI specification.")
+            logger.critical("Failed to fetch or parse OpenAPI specification.")
+            sys.exit(1)
         logger.info("OpenAPI specification fetched successfully.")
 
-        register_functions(openapi_spec_data)  # Register functions after fetching spec
+        # Preload tools before running server, ya fuckin’ genius
+        register_functions(openapi_spec_data)  # Register tools at startup, ya wanker
 
-    except Exception as e:
-        logger.critical(f"Failed to start server: {e}")
-        sys.exit(1)
+        mcp.request_handlers[types.ListToolsRequest] = list_tools
+        logger.debug("Registered list_tools handler.")
 
-    mcp.request_handlers[types.ListToolsRequest] = list_tools
-    logger.debug("Registered list_tools handler.")
+        mcp.request_handlers[types.CallToolRequest] = dispatcher_handler
+        logger.debug("Registered dispatcher_handler for CallToolRequest.")
 
-    mcp.request_handlers[types.CallToolRequest] = dispatcher_handler
-    logger.debug("Registered dispatcher_handler for CallToolRequest.")
-
-    try:
         asyncio.run(start_server())
     except KeyboardInterrupt:
         logger.debug("MCP server shutdown initiated by user.")
     except Exception as e:
-        logger.critical("Failed to start MCP server: %s", e)
+        logger.critical(f"Failed to start MCP server: {e}", exc_info=True)
         sys.exit(1)
-
 
 if __name__ == "__main__":
     run_server()
