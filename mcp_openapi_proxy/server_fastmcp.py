@@ -80,6 +80,7 @@ def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
     if spec is None:
         logger.error("Spec is None after fetch_openapi_spec")
         return json.dumps([])
+    logger.debug(f"Raw spec loaded: {json.dumps(spec, indent=2)}")
     logger.debug(f"Spec loaded with keys: {list(spec.keys())}")
     paths = spec.get("paths", {})
     logger.debug(f"Paths extracted from spec: {list(paths.keys())}")
