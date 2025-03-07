@@ -192,7 +192,7 @@ def fetch_openapi_spec(spec_url: str) -> dict:
         logger.error(f"Error fetching OpenAPI spec from {spec_url}: {e}")
         return None
     except (json.JSONDecodeError, yaml.YAMLError) as e:
-        logger.error(f"Error parsing OpenAPI spec from {spec_url): {e}")
+        logger.error(f"Error parsing OpenAPI spec from {spec_url}: {e}")
         return None
     except FileNotFoundError as e:
         logger.error(f"Local file not found for OpenAPI spec at {spec_url}: {e}")
