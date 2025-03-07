@@ -1,4 +1,4 @@
-name: Publish to TestPyPI
+name: Publish to PyPI and TestPyPI
 
 on:
   push:
@@ -13,40 +13,53 @@ permissions:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - name: TestPyPI
+            repository_url: https://test.pypi.org/legacy/
+            api_token: ${{ secrets.TEST_PYPI_API_TOKEN }}
+            environment_name: testpypi
+            project_url: https://test.pypi.org/project/mcp-openapi-proxy
+          - name: PyPI
+            repository_url: https://upload.pypi.org/legacy/
+            api_token: ${{ secrets.PYPI_API_TOKEN }}
+            environment_name: pypi
+            project_url: https://pypi.org/project/mcp-openapi-proxy
     environment:
-      name: testpypi
-      url: https://test.pypi.org/project/mcp-openapi-proxy
+      name: ${{ matrix.target.environment_name }}
+      url: ${{ matrix.target.project_url }}
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-    - name: Install build tools
-      run: |
-        python -m pip install --upgrade pip
-        pip install build wheel twine setuptools
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build wheel twine setuptools
 
-    - name: Bump version automatically
-      run: |
-        NEW_VERSION=$(python -c "import time; print('0.1.' + str(int(time.time())))")
-        echo "Updating version to $NEW_VERSION"
-        sed -i "s/^version = .*/version = \"$NEW_VERSION\"/" pyproject.toml
+      - name: Bump version automatically
+        run: |
+          NEW_VERSION=$(python -c "import time; print('0.1.' + str(int(time.time())))")
+          echo "Updating version to $NEW_VERSION"
+          sed -i "s/^version = .*/version = \"$NEW_VERSION\"/" pyproject.toml
 
-    - name: Build package artifacts
-      run: python -m build
+      - name: Build package artifacts
+        run: python -m build
 
-    - name: Validate package structure
-      run: twine check dist/*
+      - name: Validate package structure
+        run: twine check dist/*
 
-    - name: Publish to TestPyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        repository-url: https://test.pypi.org/legacy/
-        password: ${{ secrets.TEST_PYPI_API_TOKEN }}
-        attestations: false
-        twine-args: --verbose
+      - name: Publish to ${{ matrix.target.name }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: ${{ matrix.target.repository_url }}
+          password: ${{ matrix.target.api_token }}
+          attestations: false
+          twine-args: --verbose
