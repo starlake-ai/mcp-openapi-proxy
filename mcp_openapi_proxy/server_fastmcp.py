@@ -4,86 +4,106 @@ Provides the FastMCP server logic for mcp-openapi-proxy.
 This server exposes a pre-defined set of functions based on an OpenAPI specification.
 Configuration is controlled via environment variables:
 
-- OPENAPI_SPEC_URL: URL pointing to the OpenAPI JSON specification or local file.
-- OPENAPI_SIMPLE_MODE_FUNCTION_CONFIG: JSON configuration for available functions.
-- DEBUG: Enables debug logging when set to true.
+- OPENAPI_SPEC_URL_<hash>: Unique URL per test, falls back to OPENAPI_SPEC_URL.
 - TOOL_WHITELIST: Comma-separated list of allowed endpoint paths.
 - SERVER_URL_OVERRIDE: (Optional) Overrides the base URL from the OpenAPI spec.
 - API_AUTH_BEARER: (Optional) Token for endpoints requiring authentication.
-- API_AUTH_TYPE: (Optional) 'Bearer' or 'Api-Key' - defaults to 'Bearer'.
+- API_AUTH_TYPE_OVERRIDE: (Optional) 'Bearer' or 'Api-Key'.
 """
 
 import os
 import sys
 import json
 import requests
+import logging
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s %(levelname)s %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
+
+logger.debug(f"Server CWD: {os.getcwd()}")
+logger.debug(f"Server sys.path: {sys.path}")
 
 from mcp.server.fastmcp import FastMCP
-from mcp_openapi_proxy.utils import setup_logging, fetch_openapi_spec
-
-OPENAPI_SPEC_URL = os.getenv("OPENAPI_SPEC_URL")
-FUNCTION_CONFIG_JSON = os.getenv("OPENAPI_SIMPLE_MODE_FUNCTION_CONFIG")
-DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
-API_AUTH_TYPE = os.getenv("API_AUTH_TYPE", "Bearer")
-
-logger = setup_logging(debug=DEBUG)
-logger.debug(f"OpenAPI Spec URL: {OPENAPI_SPEC_URL}")
-logger.debug(f"Function Config JSON: {FUNCTION_CONFIG_JSON}")
-logger.debug(f"API_AUTH_TYPE: {API_AUTH_TYPE}")
+from mcp_openapi_proxy.utils import setup_logging, is_tool_whitelisted, get_auth_type
 
 mcp = FastMCP("OpenApiProxy-Fast")
 
-def is_tool_whitelisted(endpoint: str) -> bool:
-    """
-    Checks if an endpoint is in the TOOL_WHITELIST.
-
-    Args:
-        endpoint (str): The API endpoint path to check.
-
-    Returns:
-        bool: True if whitelisted or no whitelist set, False otherwise.
-    """
-    whitelist = os.getenv("TOOL_WHITELIST", "")
-    logger.debug(f"Checking whitelist - endpoint: {endpoint}, TOOL_WHITELIST: {whitelist}")
-    if not whitelist:
-        logger.debug("No TOOL_WHITELIST set, allowing all endpoints.")
-        return True
-    whitelist_items = [item.strip() for item in whitelist.split(",") if item.strip()]
-    is_allowed = endpoint in whitelist_items
-    logger.debug(f"Whitelist check result for {endpoint}: {is_allowed}")
-    return is_allowed
+def fetch_openapi_spec(spec_url: str) -> dict:
+    logger.debug(f"Starting fetch_openapi_spec with spec_url: {spec_url}")
+    if not spec_url:
+        logger.error("spec_url is empty or None")
+        return None
+    logger.debug(f"Current CWD in fetch_openapi_spec: {os.getcwd()}")
+    try:
+        if spec_url.startswith("file://"):
+            spec_path = os.path.abspath(spec_url.replace("file://", ""))
+            logger.debug(f"Spec path after file:// strip and abspath: {spec_path}")
+            if not os.path.exists(spec_path):
+                logger.error(f"File does not exist at: {spec_path}")
+                return None
+            logger.debug(f"File exists at: {spec_path}")
+            with open(spec_path, 'r') as f:
+                spec = json.load(f)
+            logger.debug(f"Successfully read local OpenAPI spec from {spec_path}")
+        else:
+            logger.debug(f"Fetching remote spec from {spec_url}")
+            response = requests.get(spec_url)
+            response.raise_for_status()
+            spec = json.loads(response.text)
+            logger.debug(f"Successfully fetched OpenAPI spec from {spec_url}")
+        if not spec:
+            logger.error(f"Spec is empty after loading from {spec_url}")
+            return None
+        logger.debug(f"Spec keys loaded: {list(spec.keys())}")
+        logger.debug(f"Spec paths: {list(spec.get('paths', {}).keys())}")
+        return spec
+    except Exception as e:
+        logger.error(f"Failed to fetch or parse spec from {spec_url}: {e}", exc_info=True)
+        return None
 
 @mcp.tool()
-def list_functions() -> str:
-    """
-    Lists available API functions defined in the OpenAPI specification.
-
-    Returns:
-        A JSON-encoded string detailing available functions, or an error message if configuration is missing.
-    """
+def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
     logger.debug("Executing list_functions tool.")
-    if not OPENAPI_SPEC_URL:
-        error_msg = "OPENAPI_SPEC_URL is not configured."
-        logger.error(error_msg)
-        return json.dumps({"error": error_msg})
-
-    spec = fetch_openapi_spec(OPENAPI_SPEC_URL)
-    if not spec:
-        error_msg = "Failed to fetch or parse the OpenAPI specification."
-        logger.error(error_msg)
-        return json.dumps({"error": error_msg})
-
-    logger.debug(f"Spec paths available: {list(spec.get('paths', {}).keys())}")
+    spec_url = os.environ.get(env_key, os.environ.get("OPENAPI_SPEC_URL"))
+    whitelist = os.getenv('TOOL_WHITELIST')
+    logger.debug(f"Using spec_url: {spec_url}")
+    logger.debug(f"TOOL_WHITELIST value: {whitelist}")
+    if not spec_url:
+        logger.error("No OPENAPI_SPEC_URL or custom env_key configured.")
+        return json.dumps([])
+    logger.debug(f"Calling fetch_openapi_spec with: {spec_url}")
+    spec = fetch_openapi_spec(spec_url)
+    if spec is None:
+        logger.error("Spec is None after fetch_openapi_spec")
+        return json.dumps([])
+    logger.debug(f"Spec loaded with keys: {list(spec.keys())}")
+    paths = spec.get("paths", {})
+    logger.debug(f"Paths extracted from spec: {list(paths.keys())}")
+    if not paths:
+        logger.debug("No paths found in spec.")
+        return json.dumps([])
     functions = []
-    for path, path_item in spec.get("paths", {}).items():
+    for path, path_item in paths.items():
         logger.debug(f"Processing path: {path}")
-        if not is_tool_whitelisted(path):
+        if not path_item:
+            logger.debug(f"Path item is empty for {path}")
+            continue
+        whitelist_check = is_tool_whitelisted(path)
+        logger.debug(f"Whitelist check for {path}: {whitelist_check}")
+        if not whitelist_check:
             logger.debug(f"Path {path} not in whitelist - skipping.")
             continue
         for method, operation in path_item.items():
-            logger.debug(f"Found method: {method}")
+            logger.debug(f"Found method: {method} for path: {path}")
+            if not method:
+                logger.debug(f"Method is empty for {path}")
+                continue
             if method.lower() not in ["get", "post", "put", "delete", "patch"]:
-                logger.debug(f"Method {method} not supported - skipping.")
+                logger.debug(f"Method {method} not supported for {path} - skipping.")
                 continue
             function_name = f"{method.upper()} {path}"
             function_description = operation.get("summary", operation.get("description", "No description provided."))
@@ -96,99 +116,107 @@ def list_functions() -> str:
                 "operationId": operation.get("operationId")
             })
     logger.info(f"Discovered {len(functions)} functions from the OpenAPI specification.")
+    logger.debug(f"Functions list: {functions}")
     return json.dumps(functions, indent=2)
 
 @mcp.tool()
-def call_function(*, function_name: str, parameters: dict = None) -> str:
-    """
-    Calls a specified API function (endpoint) defined in the OpenAPI specification with given parameters.
-
-    Args:
-        function_name (str): The name of the API function to call (e.g., "GET /pets").
-        parameters (dict, optional): Parameters for the API call (query parameters, request body, etc.).
-
-    Returns:
-        str: The raw API response as a JSON-encoded string, or an error message.
-    """
+def call_function(*, function_name: str, parameters: dict = None, env_key: str = "OPENAPI_SPEC_URL") -> str:
     logger.debug(f"call_function invoked with function_name='{function_name}' and parameters={parameters}")
-    if not OPENAPI_SPEC_URL:
-        error_msg = "OPENAPI_SPEC_URL is not configured."
-        logger.error(error_msg)
-        return json.dumps({"error": error_msg})
-
-    spec = fetch_openapi_spec(OPENAPI_SPEC_URL)
-    if not spec:
-        error_msg = "Failed to fetch or parse the OpenAPI specification."
-        logger.error(error_msg)
-        return json.dumps({"error": error_msg})
-
+    if not function_name:
+        logger.error("function_name is empty or None")
+        return json.dumps({"error": "function_name is required"})
+    spec_url = os.environ.get(env_key, os.environ.get("OPENAPI_SPEC_URL"))
+    if not spec_url:
+        logger.error("No OPENAPI_SPEC_URL or custom env_key configured.")
+        return json.dumps({"error": "OPENAPI_SPEC_URL is not configured"})
+    logger.debug(f"Fetching spec for call_function: {spec_url}")
+    spec = fetch_openapi_spec(spec_url)
+    if spec is None:
+        logger.error("Spec is None for call_function")
+        return json.dumps({"error": "Failed to fetch or parse the OpenAPI specification"})
+    logger.debug(f"Spec keys for call_function: {list(spec.keys())}")
+    API_AUTH_TYPE = os.getenv("API_AUTH_TYPE_OVERRIDE", get_auth_type(spec))
+    logger.debug(f"API_AUTH_TYPE set to: {API_AUTH_TYPE}")
     function_def = None
-    for path, path_item in spec.get("paths", {}).items():
+    paths = spec.get("paths", {})
+    logger.debug(f"Paths for function lookup: {list(paths.keys())}")
+    for path, path_item in paths.items():
+        logger.debug(f"Checking path: {path}")
         for method, operation in path_item.items():
+            logger.debug(f"Checking method: {method} for {path}")
             if method.lower() not in ["get", "post", "put", "delete", "patch"]:
+                logger.debug(f"Skipping unsupported method: {method}")
                 continue
             current_function_name = f"{method.upper()} {path}"
+            logger.debug(f"Comparing {current_function_name} with {function_name}")
             if current_function_name == function_name:
                 function_def = {
                     "path": path,
                     "method": method.upper(),
                     "operation": operation
                 }
-                logger.debug(f"Matched function definition for '{function_name}'.")
+                logger.debug(f"Matched function definition for '{function_name}': {function_def}")
                 break
         if function_def:
             break
-
     if not function_def:
-        error_msg = f"Function '{function_name}' not found in the OpenAPI specification."
-        logger.error(error_msg)
-        return json.dumps({"error": error_msg})
-
+        logger.error(f"Function '{function_name}' not found in the OpenAPI specification.")
+        return json.dumps({"error": f"Function '{function_name}' not found"})
+    logger.debug(f"Function def found: {function_def}")
     if not is_tool_whitelisted(function_def["path"]):
-        error_msg = f"Access to function '{function_name}' is not allowed."
-        logger.error(error_msg)
-        return json.dumps({"error": error_msg})
-
-    # Determine base URL, respecting spec's basePath if SERVER_URL_OVERRIDE doesn't include it
+        logger.error(f"Access to function '{function_name}' is not allowed.")
+        return json.dumps({"error": f"Access to function '{function_name}' is not allowed"})
     SERVER_URL_OVERRIDE = os.getenv("SERVER_URL_OVERRIDE")
     if SERVER_URL_OVERRIDE:
         base_url = SERVER_URL_OVERRIDE.strip()
         logger.debug(f"Using SERVER_URL_OVERRIDE: {base_url}")
     else:
         servers = spec.get("servers", [])
+        logger.debug(f"Servers from spec: {servers}")
         if servers:
             base_url = servers[0].get("url", "")
             logger.debug(f"Using base_url from OpenAPI 3.0 servers: {base_url}")
         else:
             schemes = spec.get("schemes", ["https"])
-            base_path = spec.get("basePath", "")
-            base_url = f"{schemes[0]}://example.com{base_path}"
+            host = spec.get("host", "example.com")
+            base_url = f"{schemes[0]}://{host}"
             logger.debug(f"Using Swagger 2.0 fallback base_url: {base_url}")
         if not base_url:
             logger.warning("No valid base URL found in spec or override; using empty string.")
             base_url = ""
-
-    # Append basePath from spec if not already in SERVER_URL_OVERRIDE
+    base_url = base_url.rstrip("/")
+    logger.debug(f"Normalized base_url: {base_url}")
     base_path = spec.get("basePath", "")
-    if base_path and not base_url.endswith(base_path.rstrip("/")):
-        base_url = base_url.rstrip("/") + "/" + base_path.lstrip("/")
-    api_url = base_url.rstrip("/") + function_def["path"]
-    logger.debug(f"Constructed API URL: {api_url}")
-
+    if base_path:
+        base_path = "/" + base_path.strip("/")
+        logger.debug(f"Normalized base_path: {base_path}")
+        if base_path not in base_url:
+            base_url = base_url + base_path
+            logger.debug(f"Added base_path to URL: {base_url}")
+    path = function_def["path"]
+    path = "/" + path.lstrip("/")
+    logger.debug(f"Normalized path: {path}")
+    api_url = base_url + path
+    logger.debug(f"Final API URL: {api_url}")
     request_params = {}
     request_body = None
+    headers = {"Content-Type": "application/json"}
+    if parameters is None:
+        logger.debug("Parameters is None, using empty dict")
+        parameters = {}
+    logger.debug(f"Parameters received: {parameters}")
     if parameters:
         if function_def["method"] == "GET":
             request_params = parameters
+            logger.debug(f"Set request_params for GET: {request_params}")
         else:
             request_body = parameters
-    logger.debug(f"Request params: {request_params}, Request body: {request_body}")
-
-    headers = {}
+            logger.debug(f"Set request_body: {request_body}")
     api_auth = os.getenv("API_AUTH_BEARER")
     if api_auth:
         headers["Authorization"] = f"{API_AUTH_TYPE} {api_auth}"
-
+        logger.debug(f"Added Authorization header with {API_AUTH_TYPE}")
+    logger.debug(f"Sending request - Method: {function_def['method']}, URL: {api_url}, Headers: {headers}, Params: {request_params}, Body: {request_body}")
     try:
         response = requests.request(
             method=function_def["method"],
@@ -201,24 +229,20 @@ def call_function(*, function_name: str, parameters: dict = None) -> str:
         logger.debug(f"API response received: {response.text}")
         return response.text
     except requests.exceptions.RequestException as e:
-        error_msg = f"API request failed: {e}"
-        logger.error(error_msg, exc_info=True)
-        return json.dumps({"error": error_msg})
+        logger.error(f"API request failed: {e}", exc_info=True)
+        return json.dumps({"error": f"API request failed: {e}"})
 
 def run_simple_server():
-    """
-    Runs the FastMCP version of the Any OpenAPI server.
-
-    This function verifies the necessary configurations (e.g., OPENAPI_SPEC_URL) and starts the MCP server using stdio.
-    """
-    if not OPENAPI_SPEC_URL:
+    logger.debug("Starting run_simple_server")
+    spec_url = os.environ.get("OPENAPI_SPEC_URL")
+    if not spec_url:
         logger.error("OPENAPI_SPEC_URL environment variable is required for FastMCP mode.")
         sys.exit(1)
     try:
         logger.debug("Starting MCP server (FastMCP version)...")
         mcp.run(transport="stdio")
     except Exception as e:
-        logger.error("Unhandled exception in MCP server (FastMCP).", exc_info=True)
+        logger.error("Unhandled exception in MCP server (FastMCP): %s", e, exc_info=True)
         sys.exit(1)
 
 if __name__ == "__main__":
