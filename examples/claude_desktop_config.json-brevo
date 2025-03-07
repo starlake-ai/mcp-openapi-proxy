@@ -1,0 +1,16 @@
+{
+    "mcpServers": {
+        "mcp-openapi-proxy": {
+            "command": "uvx",
+            "args": ["--from", "git+https://github.com/matthewhand/mcp-openapi-proxy", "mcp-openapi-proxy"],
+            "env": {
+                "OPENAPI_SPEC_URL": "https://api.brevo.com/v3/openapi.json",
+                "SERVER_URL_OVERRIDE": "https://api.brevo.com/v3",
+                "TOOL_WHITELIST": "/smtp/email,/contacts",
+                "API_AUTH_BEARER": "your-brevo-api-key-here",
+                "TOOL_NAME_PREFIX": "brevo_",
+                "DEBUG": "true"
+            }
+        }
+    }
+}
