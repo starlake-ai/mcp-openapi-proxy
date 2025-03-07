@@ -2,38 +2,28 @@
   "swagger": "2.0",
   "info": {
     "title": "Zep Memory API (V2)",
-    "description": "OpenAPI specification for the Memory component of Zep API V2",
+    "description": "OpenAPI specification for Zep API V2, covering Memory, Graph, Group, and User endpoints",
     "version": "2.0"
   },
   "host": "api.getzep.com",
   "basePath": "/api/v2",
-  "schemes": [
-    "https"
-  ],
+  "schemes": ["https"],
   "securityDefinitions": {
     "ApiKeyAuth": {
       "type": "apiKey",
       "in": "header",
       "name": "Authorization",
-      "description": "Header authentication of the form Api-Key <token>"
+      "description": "Header authentication in the format: Api-Key <token>"
     }
   },
-  "security": [
-    {
-      "ApiKeyAuth": []
-    }
-  ],
+  "security": [{"ApiKeyAuth": []}],
   "paths": {
     "/sessions": {
       "post": {
         "summary": "Add Session",
         "description": "Creates a new session.",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
         "parameters": [
           {
             "in": "body",
@@ -42,38 +32,21 @@
             "required": true,
             "schema": {
               "type": "object",
-              "required": [
-                "session_id",
-                "user_id"
-              ],
+              "required": ["session_id", "user_id"],
               "properties": {
-                "session_id": {
-                  "type": "string",
-                  "description": "The unique identifier of the session."
-                },
-                "user_id": {
-                  "type": "string",
-                  "description": "The unique identifier of the user associated with the session"
-                },
+                "session_id": {"type": "string", "description": "Unique identifier of the session"},
+                "user_id": {"type": "string", "description": "Unique identifier of the user associated with the session"},
                 "fact_rating_instruction": {
                   "type": "object",
                   "description": "Deprecated",
                   "properties": {
-                    "instruction": {
-                      "type": "string"
-                    },
+                    "instruction": {"type": "string"},
                     "examples": {
                       "type": "object",
                       "properties": {
-                        "high": {
-                          "type": "string"
-                        },
-                        "low": {
-                          "type": "string"
-                        },
-                        "medium": {
-                          "type": "string"
-                        }
+                        "high": {"type": "string"},
+                        "low": {"type": "string"},
+                        "medium": {"type": "string"}
                       }
                     }
                   }
@@ -90,102 +63,23 @@
         "responses": {
           "201": {
             "description": "Created",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "classifications": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "type": "string"
-                  }
-                },
-                "created_at": {
-                  "type": "string"
-                },
-                "deleted_at": {
-                  "type": "string"
-                },
-                "ended_at": {
-                  "type": "string"
-                },
-                "fact_rating_instruction": {
-                  "type": "object",
-                  "description": "Deprecated",
-                  "properties": {
-                    "instruction": {
-                      "type": "string"
-                    },
-                    "examples": {
-                      "type": "object",
-                      "properties": {
-                        "high": {
-                          "type": "string"
-                        },
-                        "low": {
-                          "type": "string"
-                        },
-                        "medium": {
-                          "type": "string"
-                        }
-                      }
-                    }
-                  }
-                },
-                "facts": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  },
-                  "description": "Deprecated"
-                },
-                "id": {
-                  "type": "integer"
-                },
-                "metadata": {
-                  "type": "object",
-                  "description": "Deprecated",
-                  "additionalProperties": {}
-                },
-                "project_uuid": {
-                  "type": "string"
-                },
-                "session_id": {
-                  "type": "string"
-                },
-                "updated_at": {
-                  "type": "string",
-                  "description": "Deprecated"
-                },
-                "user_id": {
-                  "type": "string"
-                },
-                "uuid": {
-                  "type": "string"
-                }
-              }
-            }
+            "schema": {"$ref": "#/definitions/Session"}
           },
-          "400": {
-            "description": "Memory Add Session Request Bad Request Error"
-          },
-          "500": {
-            "description": "Memory Add Session Request Internal Server Error"
-          }
+          "400": {"description": "Memory Add Session Request Bad Request Error"},
+          "500": {"description": "Memory Add Session Request Internal Server Error"}
         }
       }
     },
     "/sessions/{sessionId}": {
       "get": {
         "summary": "Get Session",
-        "description": "Returns a session.",
-        "produces": [
-          "application/json"
-        ],
+        "description": "Retrieves a session by ID.",
+        "produces": ["application/json"],
         "parameters": [
           {
             "in": "path",
             "name": "sessionId",
-            "description": "The unique identifier of the session.",
+            "description": "Unique identifier of the session",
             "required": true,
             "type": "string"
           }
@@ -193,26 +87,18 @@
         "responses": {
           "200": {
             "description": "Retrieved",
-            "schema": {
-              "$ref": "#/definitions/Session"
-            }
+            "schema": {"$ref": "#/definitions/Session"}
           },
-          "404": {
-            "description": "Memory Get Session Request Not Found Error"
-          },
-          "500": {
-            "description": "Memory Get Session Request Internal Server Error"
-          }
+          "404": {"description": "Memory Get Session Request Not Found Error"},
+          "500": {"description": "Memory Get Session Request Internal Server Error"}
         }
       }
     },
     "/sessions-ordered": {
       "get": {
         "summary": "Get Sessions",
-        "description": "Returns all sessions.",
-        "produces": [
-          "application/json"
-        ],
+        "description": "Retrieves all sessions with optional sorting and pagination.",
+        "produces": ["application/json"],
         "parameters": [
           {
             "name": "page_number",
@@ -225,21 +111,21 @@
             "name": "page_size",
             "in": "query",
             "type": "integer",
-            "description": "Number of sessions to retrieve per page.",
+            "description": "Number of sessions per page",
             "required": false
           },
           {
             "name": "order_by",
             "in": "query",
             "type": "string",
-            "description": "Field to order the results by: created_at, updated_at, user_id, session_id.",
+            "description": "Field to order results by: created_at, updated_at, user_id, session_id",
             "required": false
           },
           {
             "name": "asc",
             "in": "query",
             "type": "boolean",
-            "description": "Order direction: true for ascending, false for descending.",
+            "description": "Order direction: true for ascending, false for descending",
             "required": false
           }
         ],
@@ -249,42 +135,27 @@
             "schema": {
               "type": "object",
               "properties": {
-                "response_count": {
-                  "type": "integer"
-                },
-                "sessions": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/definitions/Session"
-                  }
-                },
-                "total_count": {
-                  "type": "integer"
-                }
+                "response_count": {"type": "integer"},
+                "sessions": {"type": "array", "items": {"$ref": "#/definitions/Session"}},
+                "total_count": {"type": "integer"}
               }
             }
           },
-          "400": {
-            "description": "Memory List Sessions Request Bad Request Error"
-          },
-          "500": {
-            "description": "Memory List Sessions Request Internal Server Error"
-          }
+          "400": {"description": "Memory List Sessions Request Bad Request Error"},
+          "500": {"description": "Memory List Sessions Request Internal Server Error"}
         }
       }
     },
     "/sessions/{sessionId}/memory": {
       "get": {
         "summary": "Get Session Memory",
-        "description": "Returns a memory for a given session.",
-        "produces": [
-          "application/json"
-        ],
+        "description": "Retrieves memory for a given session.",
+        "produces": ["application/json"],
         "parameters": [
           {
             "in": "path",
             "name": "sessionId",
-            "description": "The ID of the session for which to retrieve memory.",
+            "description": "ID of the session to retrieve memory for",
             "required": true,
             "type": "string"
           },
@@ -292,7 +163,7 @@
             "name": "lastn",
             "in": "query",
             "type": "integer",
-            "description": "The number of most recent memory entries to retrieve.",
+            "description": "Number of most recent memory entries to retrieve",
             "required": false
           },
           {
@@ -300,39 +171,29 @@
             "in": "query",
             "type": "number",
             "format": "double",
-            "description": "The minimum rating by which to filter relevant facts.",
+            "description": "Minimum rating to filter relevant facts",
             "required": false
           }
         ],
         "responses": {
           "200": {
             "description": "Retrieved",
-            "schema": {
-              "$ref": "#/definitions/Memory"
-            }
+            "schema": {"$ref": "#/definitions/Memory"}
           },
-          "404": {
-            "description": "Memory Get Request Not Found Error"
-          },
-          "500": {
-            "description": "Memory Get Request Internal Server Error"
-          }
+          "404": {"description": "Memory Get Request Not Found Error"},
+          "500": {"description": "Memory Get Request Internal Server Error"}
         }
       },
       "post": {
         "summary": "Add Memory to Session",
-        "description": "Add memory to the specified session.",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
+        "description": "Adds memory to a specified session.",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
         "parameters": [
           {
             "in": "path",
             "name": "sessionId",
-            "description": "The ID of the session to which memory should be added.",
+            "description": "ID of the session to add memory to",
             "required": true,
             "type": "string"
           },
@@ -343,62 +204,33 @@
             "required": true,
             "schema": {
               "type": "object",
-              "required": [
-                "messages"
-              ],
+              "required": ["messages"],
               "properties": {
                 "messages": {
                   "type": "array",
                   "items": {
                     "type": "object",
-                    "required": [
-                      "content",
-                      "role_type"
-                    ],
+                    "required": ["content", "role_type"],
                     "properties": {
-                      "content": {
-                        "type": "string",
-                        "description": "The content of the message."
-                      },
+                      "content": {"type": "string", "description": "Message content"},
                       "role_type": {
                         "type": "string",
-                        "description": "The type of the role (e.g., “user”, “system”).",
-                        "enum": [
-                          "assistant",
-                          "user",
-                          "system",
-                          "function",
-                          "norole"
-                        ]
+                        "description": "Role type (e.g., user, system)",
+                        "enum": ["assistant", "user", "system", "function", "norole"]
                       },
                       "metadata": {
                         "type": "object",
-                        "description": "The metadata associated with the message.",
+                        "description": "Message metadata",
                         "additionalProperties": {}
                       },
-                      "role": {
-                        "type": "string",
-                        "description": "Customizable role of the sender of the message (e.g., “john”, “sales_agent”)."
-                      },
-                      "token_count": {
-                        "type": "integer",
-                        "description": "Deprecated"
-                      }
+                      "role": {"type": "string", "description": "Custom role of the sender (e.g., john, sales_agent)"},
+                      "token_count": {"type": "integer", "description": "Deprecated"}
                     }
                   }
                 },
-                "fact_instruction": {
-                  "type": "string",
-                  "description": "Deprecated"
-                },
-                "return_context": {
-                  "type": "boolean",
-                  "description": "Optionally return memory context relevant to the most recent messages."
-                },
-                "summary_instruction": {
-                  "type": "string",
-                  "description": "Deprecated"
-                }
+                "fact_instruction": {"type": "string", "description": "Deprecated"},
+                "return_context": {"type": "boolean", "description": "Optionally return memory context for recent messages"},
+                "summary_instruction": {"type": "string", "description": "Deprecated"}
               }
             }
           }
@@ -408,29 +240,21 @@
             "description": "Successful",
             "schema": {
               "type": "object",
-              "properties": {
-                "context": {
-                  "type": "string"
-                }
-              }
+              "properties": {"context": {"type": "string"}}
             }
           },
-          "500": {
-            "description": "Memory Add Request Internal Server Error"
-          }
+          "500": {"description": "Memory Add Request Internal Server Error"}
         }
       },
       "delete": {
         "summary": "Delete Session",
         "description": "Deletes a session.",
-        "produces": [
-          "application/json"
-        ],
+        "produces": ["application/json"],
         "parameters": [
           {
             "in": "path",
             "name": "sessionId",
-            "description": "The ID of the session for which memory should be deleted.",
+            "description": "ID of the session to delete",
             "required": true,
             "type": "string"
           }
@@ -440,29 +264,19 @@
             "description": "Deleted",
             "schema": {
               "type": "object",
-              "properties": {
-                "message": {
-                  "type": "string"
-                }
-              }
+              "properties": {"message": {"type": "string"}}
             }
           },
-          "404": {
-            "description": "Memory Delete Request Not Found Error"
-          },
-          "500": {
-            "description": "Memory Delete Request Internal Server Error"
-          }
+          "404": {"description": "Memory Delete Request Not Found Error"},
+          "500": {"description": "Memory Delete Request Internal Server Error"}
         }
       }
     },
     "/sessions/{sessionId}/messages": {
       "get": {
         "summary": "Get Messages for Session",
-        "description": "Returns messages for a session.",
-        "produces": [
-          "application/json"
-        ],
+        "description": "Retrieves messages for a session.",
+        "produces": ["application/json"],
         "parameters": [
           {
             "in": "path",
@@ -492,147 +306,678 @@
             "schema": {
               "type": "object",
               "properties": {
-                "messages": {
+                "messages": {"type": "array", "items": {"$ref": "#/definitions/Message"}},
+                "row_count": {"type": "integer"},
+                "total_count": {"type": "integer"}
+              }
+            }
+          },
+          "404": {"description": "Memory Get Session Messages Request Not Found Error"},
+          "500": {"description": "Memory Get Session Messages Request Internal Server Error"}
+        }
+      }
+    },
+    "/sessions/{sessionId}/messages/classify": {
+      "post": {
+        "summary": "Classify Session",
+        "description": "Classifies a session.",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sessionId",
+            "description": "Session ID",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Request body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": ["classes", "name"],
+              "properties": {
+                "classes": {
                   "type": "array",
-                  "items": {
-                    "$ref": "#/definitions/Message"
-                  }
+                  "items": {"type": "string", "description": "Classes for classification"}
                 },
-                "row_count": {
-                  "type": "integer"
-                },
-                "total_count": {
-                  "type": "integer"
-                }
+                "name": {"type": "string", "description": "Name of the classifier"},
+                "instruction": {"type": "string", "description": "Custom instruction for classification"},
+                "last_n": {"type": "integer", "description": "Number of session messages to consider, defaults to 4"},
+                "persist": {"type": "boolean", "description": "Deprecated, defaults to true"}
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "class": {"type": "string"},
+                "label": {"type": "string"}
               }
             }
           },
-          "404": {
-            "description": "Memory Get Session Messages Request Not Found Error"
-          },
-          "500": {
-            "description": "Memory Get Session Messages Request Internal Server Error"
-          }
+          "404": {"description": "Memory Classify Session Request Not Found Error"},
+          "500": {"description": "Memory Classify Session Request Internal Server Error"}
         }
-      },
-      "/classify": {
-        "post": {
-          "summary": "Classify Session",
-          "description": "Classifies a session.",
-          "consumes": [
-            "application/json"
-          ],
-          "produces": [
-            "application/json"
-          ],
-          "parameters": [
-            {
-              "in": "path",
-              "name": "sessionId",
-              "description": "Session ID",
-              "required": true,
-              "type": "string"
-            },
-            {
-              "in": "body",
-              "name": "body",
-              "description": "Request body",
-              "required": true,
-              "schema": {
-                "type": "object",
-                "required": [
-                  "classes",
-                  "name"
-                ],
-                "properties": {
-                  "classes": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "description": "The classes to use for classification."
+      }
+    },
+    "/sessions/{sessionId}/messages/{messageUUID}": {
+      "get": {
+        "summary": "Get Message",
+        "description": "Retrieves a specific message from a session.",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sessionId",
+            "description": "Soon to be deprecated, not needed",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "path",
+            "name": "messageUUID",
+            "description": "UUID of the message",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retrieved",
+            "schema": {"$ref": "#/definitions/Message"}
+          },
+          "404": {"description": "Memory Get Session Message Request Not Found Error"},
+          "500": {"description": "Memory Get Session Message Request Internal Server Error"}
+        }
+      }
+    },
+    "/graph": {
+      "post": {
+        "summary": "Add Data to Graph",
+        "description": "Adds data to the graph. Limits vary by subscription tier; see pricing page.",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Request body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "data": {"type": "string", "description": "Optional data to add"},
+                "group_id": {"type": "string", "description": "Optional group ID"},
+                "type": {
+                  "type": "string",
+                  "enum": ["text", "json", "message"],
+                  "description": "Optional data type"
+                },
+                "user_id": {"type": "string", "description": "Optional user ID"}
+              }
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "schema": {
+              "type": "object",
+              "properties": {"message": {"type": "string"}}
+            }
+          },
+          "400": {"description": "Graph Add Request Bad Request Error"},
+          "500": {"description": "Graph Add Request Internal Server Error"}
+        }
+      }
+    },
+    "/graph/add-fact-triple": {
+      "post": {
+        "summary": "Add Fact Triple",
+        "description": "Adds a fact triple for a user or group.",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Request body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": ["fact", "fact_name", "target_node_name"],
+              "properties": {
+                "fact": {"type": "string", "maxLength": 50, "description": "Fact relating the nodes"},
+                "fact_name": {"type": "string", "minLength": 1, "maxLength": 50, "description": "Edge name in CAPS_SNAKE_CASE"},
+                "target_node_name": {"type": "string", "maxLength": 50, "description": "Target node name"},
+                "created_at": {"type": "string", "description": "Optional timestamp"},
+                "expired_at": {"type": "string", "description": "Optional expiry time"},
+                "fact_uuid": {"type": "string", "description": "Optional edge UUID"},
+                "group_id": {"type": "string", "description": "Optional group ID"},
+                "invalid_at": {"type": "string", "description": "Optional invalidation time"},
+                "source_node_name": {"type": "string", "maxLength": 50, "description": "Optional source node name"},
+                "source_node_summary": {"type": "string", "maxLength": 500, "description": "Optional source summary"},
+                "source_node_uuid": {"type": "string", "description": "Optional source UUID"},
+                "target_node_summary": {"type": "string", "maxLength": 500, "description": "Optional target summary"},
+                "target_node_uuid": {"type": "string", "description": "Optional target UUID"},
+                "user_id": {"type": "string", "description": "Optional user ID"},
+                "valid_at": {"type": "string", "description": "Optional valid-from time"}
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "edge": {"$ref": "#/definitions/Edge"},
+                "source_node": {"$ref": "#/definitions/Node"},
+                "target_node": {"$ref": "#/definitions/Node"}
+              }
+            }
+          },
+          "400": {"description": "Graph Add Fact Triple Request Bad Request Error"},
+          "500": {"description": "Graph Add Fact Triple Request Internal Server Error"}
+        }
+      }
+    },
+    "/graph/search": {
+      "post": {
+        "summary": "Search Graph",
+        "description": "Performs a graph search query.",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Request body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": ["query"],
+              "properties": {
+                "query": {"type": "string", "description": "Search query string"},
+                "center_node_uuid": {"type": "string", "description": "Optional node to rerank around"},
+                "group_id": {"type": "string", "description": "Optional group ID"},
+                "limit": {"type": "integer", "default": 10, "maximum": 50, "description": "Maximum number of facts to retrieve"},
+                "min_score": {"type": "number", "format": "double", "description": "Deprecated"},
+                "mmr_lambda": {"type": "number", "format": "double", "description": "Maximal marginal relevance weighting"},
+                "reranker": {
+                  "type": "string",
+                  "enum": ["rrf", "mmr", "node_distance", "episode_mentions", "cross_encoder"],
+                  "default": "rrf",
+                  "description": "Reranker type"
+                },
+                "scope": {
+                  "type": "string",
+                  "enum": ["edges", "nodes"],
+                  "default": "edges",
+                  "description": "Search scope"
+                },
+                "search_filters": {"type": "object", "description": "Optional search filters"},
+                "user_id": {"type": "string", "description": "Optional user ID"}
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "edges": {"type": "array", "items": {"$ref": "#/definitions/Edge"}},
+                "nodes": {"type": "array", "items": {"$ref": "#/definitions/Node"}}
+              }
+            }
+          },
+          "400": {"description": "Graph Search Request Bad Request Error"},
+          "500": {"description": "Graph Search Request Internal Server Error"}
+        }
+      }
+    },
+    "/groups": {
+      "post": {
+        "summary": "Create Group",
+        "description": "Creates a new group.",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Request body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": ["group_id"],
+              "properties": {
+                "group_id": {"type": "string", "description": "Unique group identifier"},
+                "description": {"type": "string", "description": "Optional description"},
+                "fact_rating_instruction": {
+                  "type": "object",
+                  "properties": {
+                    "instruction": {"type": "string"},
+                    "examples": {
+                      "type": "object",
+                      "properties": {
+                        "high": {"type": "string"},
+                        "low": {"type": "string"},
+                        "medium": {"type": "string"}
+                      }
                     }
-                  },
-                  "name": {
-                    "type": "string",
-                    "description": "The name of the classifier."
-                  },
-                  "instruction": {
-                    "type": "string",
-                    "description": "Custom instruction to use for classification."
-                  },
-                  "last_n": {
-                    "type": "integer",
-                    "description": "Defaults to 4\nThe number of session messages to consider for classification. Defaults to 4."
-                  },
-                  "persist": {
-                    "type": "boolean",
-                    "description": "Defaults to true\nDeprecated"
                   }
-                }
+                },
+                "name": {"type": "string", "description": "Optional group name"}
               }
-            }
-          ],
-          "responses": {
-            "200": {
-              "description": "Successful",
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "class": {
-                    "type": "string"
-                  },
-                  "label": {
-                    "type": "string"
-                  }
-                }
-              }
-            },
-            "404": {
-              "description": "Memory Classify Session Request Not Found Error"
-            },
-            "500": {
-              "description": "Memory Classify Session Request Internal Server Error"
             }
           }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "schema": {"$ref": "#/definitions/Group"}
+          },
+          "400": {"description": "Group Add Request Bad Request Error"},
+          "500": {"description": "Group Add Request Internal Server Error"}
+        }
+      }
+    },
+    "/groups-ordered": {
+      "get": {
+        "summary": "Get All Groups",
+        "description": "Retrieves all groups with pagination.",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "type": "integer",
+            "description": "Page number, starting from 1",
+            "required": false
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "type": "integer",
+            "description": "Number of groups per page",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retrieved",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "groups": {"type": "array", "items": {"$ref": "#/definitions/Group"}},
+                "row_count": {"type": "integer"},
+                "total_count": {"type": "integer"}
+              }
+            }
+          },
+          "400": {"description": "Get Groups Ordered Request Bad Request Error"},
+          "500": {"description": "Get Groups Ordered Request Internal Server Error"}
+        }
+      }
+    },
+    "/groups/{groupId}": {
+      "get": {
+        "summary": "Get Group",
+        "description": "Retrieves a group by ID.",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "groupId",
+            "type": "string",
+            "required": true,
+            "description": "Group ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retrieved",
+            "schema": {"$ref": "#/definitions/Group"}
+          },
+          "404": {"description": "Get Groups Group ID Request Not Found Error"},
+          "500": {"description": "Get Groups Group ID Request Internal Server Error"}
         }
       },
-      "/{messageUUID}": {
-        "get": {
-          "summary": "Get Message",
-          "description": "Returns a specific message from a session.",
-          "produces": [
-            "application/json"
-          ],
-          "parameters": [
-            {
-              "in": "path",
-              "name": "sessionId",
-              "description": "Soon to be deprecated as this is not needed.",
-              "required": true,
-              "type": "string"
-            },
-            {
-              "in": "path",
-              "name": "messageUUID",
-              "description": "The UUID of the message.",
-              "required": true,
-              "type": "string"
+      "delete": {
+        "summary": "Delete Group",
+        "description": "Deletes a group.",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "groupId",
+            "type": "string",
+            "required": true,
+            "description": "Group ID to delete"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted",
+            "schema": {
+              "type": "object",
+              "properties": {"message": {"type": "string"}}
             }
-          ],
-          "responses": {
-            "200": {
-              "description": "Retrieved",
-              "schema": {
-                "$ref": "#/definitions/Message"
+          },
+          "400": {"description": "Group Delete Request Bad Request Error"},
+          "404": {"description": "Group Delete Request Not Found Error"},
+          "500": {"description": "Group Delete Request Internal Server Error"}
+        }
+      },
+      "patch": {
+        "summary": "Update Group",
+        "description": "Updates group information.",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "groupId",
+            "type": "string",
+            "required": true,
+            "description": "Group ID to update"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Update body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "description": {"type": "string", "description": "Optional new description"},
+                "fact_rating_instruction": {
+                  "type": "object",
+                  "properties": {
+                    "instruction": {"type": "string"},
+                    "examples": {
+                      "type": "object",
+                      "properties": {
+                        "high": {"type": "string"},
+                        "low": {"type": "string"},
+                        "medium": {"type": "string"}
+                      }
+                    }
+                  }
+                },
+                "name": {"type": "string", "description": "Optional new name"}
               }
-            },
-            "404": {
-              "description": "Memory Get Session Message Request Not Found Error"
-            },
-            "500": {
-              "description": "Memory Get Session Message Request Internal Server Error"
             }
           }
+        ],
+        "responses": {
+          "201": {
+            "description": "Updated",
+            "schema": {"$ref": "#/definitions/Group"}
+          },
+          "400": {"description": "Group Update Request Bad Request Error"},
+          "404": {"description": "Group Update Request Not Found Error"},
+          "500": {"description": "Group Update Request Internal Server Error"}
+        }
+      }
+    },
+    "/users": {
+      "post": {
+        "summary": "Add User",
+        "description": "Creates a new user.",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Request body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "email": {"type": "string", "description": "Optional email address"},
+                "fact_rating_instruction": {
+                  "type": "object",
+                  "description": "Optional fact rating instruction",
+                  "properties": {
+                    "instruction": {"type": "string"},
+                    "examples": {
+                      "type": "object",
+                      "properties": {
+                        "high": {"type": "string"},
+                        "low": {"type": "string"},
+                        "medium": {"type": "string"}
+                      }
+                    }
+                  }
+                },
+                "first_name": {"type": "string", "description": "Optional first name"},
+                "last_name": {"type": "string", "description": "Optional last name"},
+                "metadata": {
+                  "type": "object",
+                  "description": "Optional metadata",
+                  "additionalProperties": {}
+                },
+                "user_id": {"type": "string", "description": "Optional user identifier"}
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "schema": {"$ref": "#/definitions/User"}
+          },
+          "400": {"description": "User Add Request Bad Request Error"},
+          "500": {"description": "User Add Request Internal Server Error"}
+        }
+      }
+    },
+    "/users-ordered": {
+      "get": {
+        "summary": "Get Users",
+        "description": "Retrieves all users with pagination.",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "type": "integer",
+            "description": "Page number, starting from 1",
+            "required": false
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "type": "integer",
+            "description": "Number of users per page",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retrieved",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "row_count": {"type": "integer"},
+                "total_count": {"type": "integer"},
+                "users": {"type": "array", "items": {"$ref": "#/definitions/User"}}
+              }
+            }
+          },
+          "400": {"description": "User List Ordered Request Bad Request Error"},
+          "500": {"description": "User List Ordered Request Internal Server Error"}
+        }
+      }
+    },
+    "/users/{userId}": {
+      "get": {
+        "summary": "Get User",
+        "description": "Retrieves a user by ID.",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "type": "string",
+            "required": true,
+            "description": "User ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retrieved",
+            "schema": {"$ref": "#/definitions/User"}
+          },
+          "404": {"description": "User Get Request Not Found Error"},
+          "500": {"description": "User Get Request Internal Server Error"}
+        }
+      },
+      "delete": {
+        "summary": "Delete User",
+        "description": "Deletes a user.",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "type": "string",
+            "required": true,
+            "description": "User ID to delete"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted",
+            "schema": {
+              "type": "object",
+              "properties": {"message": {"type": "string"}}
+            }
+          },
+          "404": {"description": "User Delete Request Not Found Error"},
+          "500": {"description": "User Delete Request Internal Server Error"}
+        }
+      },
+      "patch": {
+        "summary": "Update User",
+        "description": "Updates user information.",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "type": "string",
+            "required": true,
+            "description": "User ID to update"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Update body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "email": {"type": "string", "description": "Optional email address"},
+                "fact_rating_instruction": {
+                  "type": "object",
+                  "description": "Optional fact rating instruction",
+                  "properties": {
+                    "instruction": {"type": "string"},
+                    "examples": {
+                      "type": "object",
+                      "properties": {
+                        "high": {"type": "string"},
+                        "low": {"type": "string"},
+                        "medium": {"type": "string"}
+                      }
+                    }
+                  }
+                },
+                "first_name": {"type": "string", "description": "Optional first name"},
+                "last_name": {"type": "string", "description": "Optional last name"},
+                "metadata": {
+                  "type": "object",
+                  "description": "Optional metadata",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "schema": {"$ref": "#/definitions/User"}
+          },
+          "400": {"description": "User Update Request Bad Request Error"},
+          "404": {"description": "User Update Request Not Found Error"},
+          "500": {"description": "User Update Request Internal Server Error"}
+        }
+      }
+    },
+    "/users/{userId}/node": {
+      "get": {
+        "summary": "Get User Node",
+        "description": "Retrieves a user’s graph node.",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "type": "string",
+            "required": true,
+            "description": "User ID for the node"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retrieved",
+            "schema": {
+              "type": "object",
+              "properties": {"node": {"$ref": "#/definitions/Node"}}
+            }
+          },
+          "404": {"description": "User Get Node Request Not Found Error"},
+          "500": {"description": "User Get Node Request Internal Server Error"}
+        }
+      }
+    },
+    "/users/{userId}/sessions": {
+      "get": {
+        "summary": "Get User Sessions",
+        "description": "Retrieves all sessions for a user.",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "type": "string",
+            "required": true,
+            "description": "User ID for sessions"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retrieved",
+            "schema": {"type": "array", "items": {"$ref": "#/definitions/Session"}}
+          },
+          "500": {"description": "User Get Sessions Request Internal Server Error"}
         }
       }
     }
@@ -643,138 +988,78 @@
       "properties": {
         "classifications": {
           "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
+          "additionalProperties": {"type": "string"}
         },
-        "created_at": {
-          "type": "string"
-        },
-        "deleted_at": {
-          "type": "string"
-        },
-        "ended_at": {
-          "type": "string"
-        },
+        "created_at": {"type": "string"},
+        "deleted_at": {"type": "string"},
+        "ended_at": {"type": "string"},
         "fact_rating_instruction": {
           "type": "object",
           "description": "Deprecated",
           "properties": {
-            "instruction": {
-              "type": "string"
-            },
+            "instruction": {"type": "string"},
             "examples": {
               "type": "object",
               "properties": {
-                "high": {
-                  "type": "string"
-                },
-                "low": {
-                  "type": "string"
-                },
-                "medium": {
-                  "type": "string"
-                }
+                "high": {"type": "string"},
+                "low": {"type": "string"},
+                "medium": {"type": "string"}
               }
             }
           }
         },
         "facts": {
           "type": "array",
-          "items": {
-            "type": "string"
-          },
+          "items": {"type": "string"},
           "description": "Deprecated"
         },
-        "id": {
-          "type": "integer"
-        },
+        "id": {"type": "integer"},
         "metadata": {
           "type": "object",
           "description": "Deprecated",
           "additionalProperties": {}
         },
-        "project_uuid": {
-          "type": "string"
-        },
-        "session_id": {
-          "type": "string"
-        },
-        "updated_at": {
-          "type": "string"
-        },
-        "user_id": {
-          "type": "string"
-        },
-        "uuid": {
-          "type": "string"
-        }
+        "project_uuid": {"type": "string"},
+        "session_id": {"type": "string"},
+        "updated_at": {"type": "string", "description": "Deprecated"},
+        "user_id": {"type": "string"},
+        "uuid": {"type": "string"}
       }
     },
     "Message": {
       "type": "object",
       "properties": {
-        "content": {
-          "type": "string",
-          "description": "The content of the message."
-        },
+        "content": {"type": "string", "description": "Message content"},
         "role_type": {
           "type": "string",
-          "description": "The type of the role (e.g., “user”, “system”).",
-          "enum": [
-            "assistant",
-            "user",
-            "system",
-            "function",
-            "norole"
-          ]
+          "description": "Role type (e.g., user, system)",
+          "enum": ["assistant", "user", "system", "function", "norole"]
         },
-        "created_at": {
-          "type": "string",
-          "description": "The timestamp of when the message was created."
-        },
+        "created_at": {"type": "string", "description": "Timestamp of message creation"},
         "metadata": {
           "type": "object",
-          "description": "The metadata associated with the message.",
+          "description": "Message metadata",
           "additionalProperties": {}
         },
-        "role": {
-          "type": "string",
-          "description": "Customizable role of the sender of the message (e.g., “john”, “sales_agent”)."
-        },
-        "token_count": {
-          "type": "integer",
-          "description": "Deprecated"
-        },
-        "updated_at": {
-          "type": "string",
-          "description": "Deprecated"
-        },
-        "uuid": {
-          "type": "string",
-          "description": "The unique identifier of the message."
-        }
+        "role": {"type": "string", "description": "Custom role of the sender (e.g., john, sales_agent)"},
+        "token_count": {"type": "integer", "description": "Deprecated"},
+        "updated_at": {"type": "string", "description": "Deprecated"},
+        "uuid": {"type": "string", "description": "Unique identifier of the message"}
       }
     },
     "Memory": {
       "type": "object",
       "properties": {
-        "context": {
-          "type": "string"
-        },
+        "context": {"type": "string"},
         "facts": {
           "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Deprecated: Use relevant_facts instead."
+          "items": {"type": "string"},
+          "description": "Deprecated: Use relevant_facts instead"
         },
         "messages": {
           "type": "array",
-          "items": {
-            "$ref": "#/definitions/Message"
-          },
-          "description": "A list of message objects, where each message contains a role and content. Only last_n messages will be returned"
+          "items": {"$ref": "#/definitions/Message"},
+          "description": "List of message objects; only last_n messages returned"
         },
         "metadata": {
           "type": "object",
@@ -786,84 +1071,129 @@
           "items": {
             "type": "object",
             "properties": {
-              "content": {
-                "type": "string"
-              },
-              "created_at": {
-                "type": "string"
-              },
-              "fact": {
-                "type": "string"
-              },
-              "uuid": {
-                "type": "string"
-              },
-              "expired_at": {
-                "type": "string"
-              },
-              "invalid_at": {
-                "type": "string"
-              },
-              "name": {
-                "type": "string"
-              },
-              "rating": {
-                "type": "number",
-                "format": "double"
-              },
-              "source_node_name": {
-                "type": "string"
-              },
-              "target_node_name": {
-                "type": "string"
-              },
-              "valid_at": {
-                "type": "string"
-              }
+              "content": {"type": "string"},
+              "created_at": {"type": "string"},
+              "fact": {"type": "string"},
+              "uuid": {"type": "string"},
+              "expired_at": {"type": "string"},
+              "invalid_at": {"type": "string"},
+              "name": {"type": "string"},
+              "rating": {"type": "number", "format": "double"},
+              "source_node_name": {"type": "string"},
+              "target_node_name": {"type": "string"},
+              "valid_at": {"type": "string"}
             }
           },
-          "description": "Most relevant facts to the recent messages in the session."
+          "description": "Most relevant facts to recent session messages"
         },
         "summary": {
           "type": "object",
-          "description": "Deprecated: Use context string instead.",
+          "description": "Deprecated: Use context string instead",
           "properties": {
-            "content": {
-              "type": "string"
-            },
-            "created_at": {
-              "type": "string"
-            },
-            "metadata": {
-              "type": "object",
-              "additionalProperties": {}
-            },
-            "related_message_uuids": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "token_count": {
-              "type": "integer"
-            },
-            "uuid": {
-              "type": "string"
-            }
+            "content": {"type": "string"},
+            "created_at": {"type": "string"},
+            "metadata": {"type": "object", "additionalProperties": {}},
+            "related_message_uuids": {"type": "array", "items": {"type": "string"}},
+            "token_count": {"type": "integer"},
+            "uuid": {"type": "string"}
           }
         }
       }
     },
-    "ClassificationResult":{
-        "type":"object",
-        "properties":{
-            "class":{
-                "type":"string"
-            },
-            "label":{
-                "type":"string"
+    "ClassificationResult": {
+      "type": "object",
+      "properties": {
+        "class": {"type": "string"},
+        "label": {"type": "string"}
+      }
+    },
+    "Edge": {
+      "type": "object",
+      "properties": {
+        "created_at": {"type": "string"},
+        "fact": {"type": "string"},
+        "name": {"type": "string"},
+        "source_node_uuid": {"type": "string"},
+        "target_node_uuid": {"type": "string"},
+        "uuid": {"type": "string"},
+        "episodes": {"type": "array", "items": {"type": "string"}},
+        "expired_at": {"type": "string"},
+        "invalid_at": {"type": "string"},
+        "valid_at": {"type": "string"}
+      }
+    },
+    "Node": {
+      "type": "object",
+      "properties": {
+        "created_at": {"type": "string"},
+        "name": {"type": "string"},
+        "summary": {"type": "string"},
+        "uuid": {"type": "string"},
+        "attributes": {"type": "object", "additionalProperties": {"type": "string"}},
+        "labels": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "Group": {
+      "type": "object",
+      "properties": {
+        "created_at": {"type": "string"},
+        "description": {"type": "string"},
+        "external_id": {"type": "string", "description": "Deprecated"},
+        "fact_rating_instruction": {
+          "type": "object",
+          "properties": {
+            "instruction": {"type": "string"},
+            "examples": {
+              "type": "object",
+              "properties": {
+                "high": {"type": "string"},
+                "low": {"type": "string"},
+                "medium": {"type": "string"}
+              }
             }
-        }
+          }
+        },
+        "group_id": {"type": "string"},
+        "id": {"type": "integer"},
+        "name": {"type": "string"},
+        "project_uuid": {"type": "string"},
+        "uuid": {"type": "string"}
+      }
+    },
+    "User": {
+      "type": "object",
+      "properties": {
+        "created_at": {"type": "string"},
+        "deleted_at": {"type": "string"},
+        "email": {"type": "string"},
+        "fact_rating_instruction": {
+          "type": "object",
+          "properties": {
+            "instruction": {"type": "string"},
+            "examples": {
+              "type": "object",
+              "properties": {
+                "high": {"type": "string"},
+                "low": {"type": "string"},
+                "medium": {"type": "string"}
+              }
+            }
+          }
+        },
+        "first_name": {"type": "string"},
+        "id": {"type": "integer"},
+        "last_name": {"type": "string"},
+        "metadata": {
+          "type": "object",
+          "description": "Deprecated",
+          "additionalProperties": {}
+        },
+        "project_uuid": {"type": "string"},
+        "session_count": {"type": "integer", "description": "Deprecated"},
+        "updated_at": {"type": "string", "description": "Deprecated"},
+        "user_id": {"type": "string"},
+        "uuid": {"type": "string"}
+      }
     }
   }
 }
