@@ -16,6 +16,8 @@ dependencies = [
   "requests>=2.25.0",
   "fastapi>=0.100.0", # needed for openapi parsing utils if we use them later # needed for data validation and openapi schema handling
   "pydantic>=2.0",
+  "prance>=23.6.21.0",
+  "openapi-spec-validator>=0.7.1",
 ]
 
 [project.scripts]
