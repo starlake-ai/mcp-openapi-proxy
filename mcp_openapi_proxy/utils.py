@@ -9,6 +9,7 @@ import logging
 import requests
 import re
 import json
+import yaml  # Added for YAML parsing, ya bloody genius
 from dotenv import load_dotenv
 
 # Load environment variables from .env if present
@@ -98,10 +99,10 @@ def redact_api_key(key: str) -> str:
 def normalize_tool_name(name: str) -> str:
     """
     Normalizes tool names by converting to lowercase and replacing non-alphanumeric characters with underscores.
-    
+
     Args:
         name (str): The original tool name.
-    
+
     Returns:
         str: A normalized tool name. Returns 'unknown_tool' if input is invalid.
     """
@@ -119,7 +120,7 @@ def normalize_tool_name(name: str) -> str:
 def get_tool_prefix() -> str:
     """
     Obtains the tool name prefix from the environment variable, ensuring it ends with an underscore.
-    
+
     Returns:
         str: The tool name prefix.
     """
@@ -131,45 +132,47 @@ def get_tool_prefix() -> str:
 def is_tool_whitelisted(endpoint: str) -> bool:
     """
     Determines whether a given endpoint is allowed based on the TOOL_WHITELIST environment variable.
-    
+
     The whitelist can specify fixed prefixes or use placeholders (e.g., {collection_name})
     which are translated into regex patterns matching one or more alphanumeric characters.
-    
+
     Args:
         endpoint (str): The API endpoint path to check.
-    
+
     Returns:
         bool: True if the endpoint is whitelisted, False otherwise.
     """
     import re
     whitelist = os.getenv("TOOL_WHITELIST", "")
+    logger.debug(f"Checking whitelist for endpoint: {endpoint}, TOOL_WHITELIST: {whitelist}")
     if not whitelist:
+        logger.debug("No TOOL_WHITELIST set, allowing all endpoints.")
         return True
     items = [item.strip() for item in whitelist.split(",") if item.strip()]
     for item in items:
+        logger.debug(f"Comparing against whitelist item: {item}")
         if "{" in item and "}" in item:
-            # Convert whitelist pattern with placeholders to regex.
+            # Convert whitelist pattern with placeholders to regex
             pattern = re.escape(item)
-            # Revert escaping for curly braces.
             pattern = pattern.replace(r"\{", "{").replace(r"\}", "}")
-            # Replace placeholders with regex for one or more alphanumeric characters.
-            pattern = re.sub(r"\{[^}]+\}", r"[A-Za-z0-9]+", pattern)
-            # Ensure pattern matches from the start of the string.
-            pattern = "^" + pattern
+            pattern = re.sub(r"\{[^}]+\}", r"[A-Za-z0-9_-]+", pattern)  # Placeholders match alphanum, _, -
+            pattern = "^" + pattern  # Start match, no $ to allow trailing, ya cunt
             if re.match(pattern, endpoint):
+                logger.debug(f"Matched regex pattern: {pattern} for {endpoint}")
                 return True
-        else:
-            if endpoint.startswith(item):
-                return True
+        elif endpoint.startswith(item):  # Simple prefix match, ya wanker
+            logger.debug(f"Prefix match found: {item} starts {endpoint}")
+            return True
+    logger.debug(f"Endpoint {endpoint} not whitelisted.")
     return False
 
 def fetch_openapi_spec(spec_url: str) -> dict:
     """
-    Fetches and parses an OpenAPI specification from the given URL.
-    
+    Fetches and parses an OpenAPI specification from the given URL, supporting both JSON and YAML.
+
     Args:
-        spec_url (str): The URL of the OpenAPI specification (JSON format).
-    
+        spec_url (str): The URL of the OpenAPI specification (JSON or YAML format).
+
     Returns:
         dict: The parsed OpenAPI specification, or None if an error occurs.
     """
@@ -177,25 +180,33 @@ def fetch_openapi_spec(spec_url: str) -> dict:
     try:
         response = requests.get(spec_url)
         response.raise_for_status()  # Raises HTTPError for bad responses
-        spec = response.json()
-        logger.debug(f"Successfully fetched OpenAPI spec from {spec_url}")
+        content_type = response.headers.get('Content-Type', '').lower()
+        content = response.text
+        
+        # Check if it's YAML or JSON based on content-type or file extension
+        if 'yaml' in content_type or spec_url.endswith(('.yaml', '.yml')):
+            spec = yaml.safe_load(content)  # Parse YAML like a bloody pro
+            logger.debug(f"Successfully parsed YAML OpenAPI spec from {spec_url}")
+        else:
+            spec = json.loads(content)  # Parse JSON like the old days
+            logger.debug(f"Successfully parsed JSON OpenAPI spec from {spec_url}")
         return spec
     except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching OpenAPI spec from {spec_url}: {e}")
         return None
-    except json.JSONDecodeError as e:
-        logger.error(f"Error parsing JSON response from {spec_url}: {e}")
+    except (json.JSONDecodeError, yaml.YAMLError) as e:
+        logger.error(f"Error parsing response from {spec_url}: {e}")
         return None
 
 def map_schema_to_tools(schema: dict) -> list:
     """
     Maps a given schema to a list of MCP tools.
-    
+
     Each entry in the schema is expected to have a "class" field, and a tool is created based on it.
-    
+
     Args:
         schema (dict): The schema containing a list of classes.
-    
+
     Returns:
         list: A list of tool objects configured from the schema.
     """
