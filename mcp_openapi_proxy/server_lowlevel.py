@@ -8,14 +8,13 @@ directly utilizing the spec for tool definitions and invocation.
 import os
 import sys
 import asyncio
-import json
 import requests
 from typing import List, Dict, Any
 from mcp import types
 from mcp.server.lowlevel import Server
 from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
-from mcp_openapi_proxy.utils import setup_logging, normalize_tool_name, is_tool_whitelisted, fetch_openapi_spec, get_auth_headers
+from mcp_openapi_proxy.utils import setup_logging, normalize_tool_name, is_tool_whitelisted, fetch_openapi_spec, get_auth_headers, detect_response_type
 
 DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
 logger = setup_logging(debug=DEBUG)
@@ -112,6 +111,11 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
             )
             response.raise_for_status()
             response_text = response.text or "No response body"
+
+            # Detect response type using shared utility
+            content, log_message = detect_response_type(response_text)
+            logger.debug(log_message)
+
         except requests.exceptions.RequestException as e:
             logger.error(f"API request failed: {e}")
             return types.ServerResult(
@@ -125,7 +129,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
 
         return types.ServerResult(
             root=types.CallToolResult(
-                content=[types.TextContent(type="text", text=response_text)]
+                content=[content] if content else [types.TextContent(type="text", text=response_text)]
             )
         )
     except Exception as e:

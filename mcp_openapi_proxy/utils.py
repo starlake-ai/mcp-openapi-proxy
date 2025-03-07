@@ -1,6 +1,7 @@
 """
 Utility functions for mcp_openapi_proxy, including logging setup,
-OpenAPI fetching, name normalization, whitelist filtering, and auth handling.
+OpenAPI fetching, name normalization, whitelist filtering, auth handling,
+and response type detection.
 """
 
 import os
@@ -11,6 +12,8 @@ import re
 import json
 import yaml
 from dotenv import load_dotenv
+from mcp import types
+from typing import Tuple, Union
 
 # Load environment variables from .env if present
 load_dotenv()
@@ -265,3 +268,23 @@ def map_schema_to_tools(schema: dict) -> list:
         tool = types.Tool(name=tool_name, description=description, inputSchema={"type": "object"})
         tools.append(tool)
     return tools
+
+def detect_response_type(response_text: str) -> Tuple[Union[types.JSONContent, types.TextContent], str]:
+    """
+    Detect the response type (JSON or text) and return the appropriate MCP content object.
+
+    Args:
+        response_text (str): The raw response text from the HTTP request.
+
+    Returns:
+        Tuple: (content object, log message)
+    """
+    logger = logging.getLogger(__name__)
+    try:
+        json.loads(response_text)
+        content = types.JSONContent(type="json", json=response_text)
+        log_message = "Detected JSON response"
+    except json.JSONDecodeError:
+        content = types.TextContent(type="text", text=response_text)
+        log_message = "Detected non-JSON response, falling back to text"
+    return content, log_message
