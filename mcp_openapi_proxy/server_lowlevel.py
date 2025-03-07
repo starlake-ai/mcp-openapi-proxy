@@ -8,6 +8,7 @@ directly utilizing the spec for tool definitions and invocation.
 import os
 import sys
 import asyncio
+import json
 import requests
 from typing import List, Dict, Any
 from mcp import types
@@ -115,7 +116,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
             logger.error(f"API request failed: {e}")
             return types.ServerResult(
                 root=types.CallToolResult(
-                    content=[types.TextContent(type="text", str(e))]
+                    content=[types.TextContent(type="text", text=str(e))]
                 )
             )
         
