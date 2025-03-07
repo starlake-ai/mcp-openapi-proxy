@@ -8,7 +8,6 @@ directly utilizing the spec for tool definitions and invocation.
 import os
 import sys
 import asyncio
-import json
 import requests
 from typing import List, Dict, Any
 from mcp import types
@@ -19,10 +18,6 @@ from mcp_openapi_proxy.utils import setup_logging, normalize_tool_name, is_tool_
 
 DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
 logger = setup_logging(debug=DEBUG)
-
-# Response length limit for body content (in characters), 0 for unlimited
-RESPONSE_LIMIT = int(os.getenv("RESPONSE_LIMIT", 5000))
-logger.debug(f"Response length limit set to: {RESPONSE_LIMIT} characters (0 = unlimited)")
 
 tools: List[types.Tool] = []
 openapi_spec_data = None
@@ -43,7 +38,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                     content=[types.TextContent(type="text", text="Unknown function requested")]
                 )
             )
-        arguments = request.params.arguments
+        arguments = request.params.arguments or {}
         logger.debug(f"Function arguments: {arguments}")
         operation_details = lookup_operation_details(function_name, openapi_spec_data)
         if not operation_details:
@@ -73,7 +68,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
             logger.critical("No servers or host defined in OpenAPI spec - cannot construct base URL.")
             return types.ServerResult(
                 root=types.CallToolResult(
-                    content=[types.TextContent(type="text", text=json.dumps({"error": "No base URL defined in spec"}, indent=2))]
+                    content=[types.TextContent(type="text", text="No base URL defined in spec")]
                 )
             )
 
@@ -81,7 +76,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
             logger.critical("Base URL is empty after spec parsing - check spec configuration.")
             return types.ServerResult(
                 root=types.CallToolResult(
-                    content=[types.TextContent(type="text", text=json.dumps({"error": "Empty base URL from spec"}, indent=2))]
+                    content=[types.TextContent(type="text", text="Empty base URL from spec")]
                 )
             )
 
@@ -115,38 +110,15 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                 json=request_body if request_body else None
             )
             response.raise_for_status()
-            response_data = response.json() if response.text else {}
+            response_text = response.text or "No response body"
         except requests.exceptions.RequestException as e:
             logger.error(f"API request failed: {e}")
             return types.ServerResult(
                 root=types.CallToolResult(
-                    content=[types.TextContent(type="text", text=json.dumps({"error": f"API request failed: {e}"}, indent=2))]
+                    content=[types.TextContent(type="text", str(e))]
                 )
             )
         
-        # Construct the response content
-        response_dict = {
-            "status_code": response.status_code,
-            "headers": dict(response.headers),
-            "body": response_data
-        }
-        response_text = json.dumps(response_dict, indent=2)
-
-        # Check and truncate body content if necessary
-        if RESPONSE_LIMIT > 0:
-            body_text = json.dumps(response_dict["body"], indent=2)
-            if len(body_text) > RESPONSE_LIMIT:
-                truncated_body = json.loads(body_text[:RESPONSE_LIMIT - 50])  # Parse to avoid mid-object cut
-                if isinstance(truncated_body, dict) and "sessions" in truncated_body:
-                    sessions = truncated_body["sessions"]
-                    if len(sessions) > 1:  # Keep at least one session
-                        truncated_body["sessions"] = sessions[:len(sessions)//2]  # Halve sessions as a simple cutoff
-                        truncated_body["truncated"] = True
-                        truncated_body["note"] = f"Truncated at {RESPONSE_LIMIT} chars, showing {len(truncated_body['sessions'])} of {len(sessions)} sessions"
-                    response_dict["body"] = truncated_body
-                    logger.debug(f"Body truncated from {len(body_text)} to {len(json.dumps(response_dict['body'], indent=2))} characters")
-                response_text = json.dumps(response_dict, indent=2)
-
         # Log the final response sent to the client
         logger.debug(f"Response sent to client: {response_text}")
 
@@ -159,7 +131,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
         logger.error(f"Unhandled exception in dispatcher_handler: {e}", exc_info=True)
         return types.ServerResult(
             root=types.CallToolResult(
-                content=[types.TextContent(type="text", text=json.dumps({"error": "Internal server error."}, indent=2))]
+                content=[types.TextContent(type="text", text=str(e))]
             )
         )
 
