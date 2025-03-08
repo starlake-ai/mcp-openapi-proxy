@@ -249,7 +249,6 @@ Update your configuration:
                 "TOOL_WHITELIST": "/sessions",
                 "API_KEY": "<your_getzep_api_key>",
                 "API_AUTH_TYPE": "Api-Key",
-                "SERVER_URL_OVERRIDE": "https://api.getzep.com",
                 "TOOL_NAME_PREFIX": "getzep_"
             }
         }
