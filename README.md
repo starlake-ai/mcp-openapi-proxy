@@ -218,7 +218,7 @@ Try these commands in your MCP client:
 
 ### GetZep Example
 
-![image](https://github.com/user-attachments/assets/6ae7f708-9494-41a1-9075-e685f2cd8873)
+![image](https://github.com/user-attachments/assets/9a4fdabb-fa3d-4626-a50f-438147eadc9f)
 
 GetZep offers a free cloud API for memory management with detailed endpoints. Since GetZep did not provide an official OpenAPI specification, this project includes a generated spec hosted on GitHub for convenience. This approach—creating a spec from documentation—is a reusable pattern: users can similarly generate OpenAPI specs for any REST API and reference them locally (e.g., `file:///path/to/spec.json`). Obtain an API key from [GetZep's documentation](https://docs.getzep.com/).
 
