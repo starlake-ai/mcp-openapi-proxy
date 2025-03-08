@@ -9,6 +9,7 @@ Configuration is controlled via environment variables:
 - SERVER_URL_OVERRIDE: Optional override for the base URL from the OpenAPI spec.
 - API_KEY: Optional token for endpoints requiring authentication.
 - API_AUTH_TYPE: Optional type like 'Bearer' or 'Api-Key'.
+- API_KEY_JMESPATH: Optional JMESPath expression to map API_KEY into request parameters.
 """
 
 import os
@@ -17,7 +18,7 @@ import json
 import requests
 
 from mcp.server.fastmcp import FastMCP
-from mcp_openapi_proxy.utils import setup_logging, is_tool_whitelisted, fetch_openapi_spec, get_auth_headers, build_base_url, normalize_tool_name
+from mcp_openapi_proxy.utils import setup_logging, is_tool_whitelisted, fetch_openapi_spec, get_auth_headers, build_base_url, normalize_tool_name, handle_custom_auth, get_tool_prefix
 
 logger = setup_logging(debug=os.getenv("DEBUG", "").lower() in ("true", "1", "yes"))
 
@@ -28,6 +29,7 @@ mcp = FastMCP("OpenApiProxy-Fast")
 
 @mcp.tool()
 def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
+    """Lists available functions derived from the OpenAPI specification."""
     logger.debug("Executing list_functions tool.")
     spec_url = os.environ.get(env_key, os.environ.get("OPENAPI_SPEC_URL"))
     whitelist = os.getenv('TOOL_WHITELIST')
@@ -47,6 +49,7 @@ def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
         logger.debug("No paths found in spec.")
         return json.dumps([])
     functions = {}
+    prefix = get_tool_prefix()  # Grab the prefix here
     for path, path_item in paths.items():
         logger.debug(f"Processing path: {path}")
         if not path_item:
@@ -67,6 +70,8 @@ def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
                 continue
             raw_name = f"{method.upper()} {path}"
             function_name = normalize_tool_name(raw_name)
+            if prefix:
+                function_name = f"{prefix}{function_name}"  # Apply prefix here
             if function_name in functions:
                 logger.debug(f"Skipping duplicate tool name: {function_name}")
                 continue
@@ -86,6 +91,7 @@ def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
 
 @mcp.tool()
 def call_function(*, function_name: str, parameters: dict = None, env_key: str = "OPENAPI_SPEC_URL") -> str:
+    """Calls a function derived from the OpenAPI specification."""
     logger.debug(f"call_function invoked with function_name='{function_name}' and parameters={parameters}")
     if not function_name:
         logger.error("function_name is empty or None")
@@ -102,6 +108,7 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
     function_def = None
     paths = spec.get("paths", {})
     logger.debug(f"Paths for function lookup: {list(paths.keys())}")
+    prefix = get_tool_prefix()  # Ensure prefix is considered here too
     for path, path_item in paths.items():
         logger.debug(f"Checking path: {path}")
         for method, operation in path_item.items():
@@ -111,6 +118,8 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
                 continue
             raw_name = f"{method.upper()} {path}"
             current_function_name = normalize_tool_name(raw_name)
+            if prefix:
+                current_function_name = f"{prefix}{current_function_name}"
             logger.debug(f"Comparing {current_function_name} with {function_name}")
             if current_function_name == function_name:
                 function_def = {
@@ -126,11 +135,14 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
         logger.error(f"Function '{function_name}' not found in the OpenAPI specification.")
         return json.dumps({"error": f"Function '{function_name}' not found"})
     logger.debug(f"Function def found: {function_def}")
+
+    # Apply custom auth mapping if API_KEY_JMESPATH is set
+    parameters = handle_custom_auth(function_def["operation"], parameters)
+
     if not is_tool_whitelisted(function_def["path"]):
         logger.error(f"Access to function '{function_name}' is not allowed.")
         return json.dumps({"error": f"Access to function '{function_name}' is not allowed"})
 
-    # Build base URL using the utility function
     base_url = build_base_url(spec)
     if not base_url:
         logger.error("Failed to construct base URL from spec or SERVER_URL_OVERRIDE.")
@@ -148,9 +160,8 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
         headers["Content-Type"] = "application/json"
     headers.update(get_auth_headers(spec))
     if parameters is None:
-        logger.debug("Parameters is None, using empty dict")
         parameters = {}
-    logger.debug(f"Parameters received: {parameters}")
+    logger.debug(f"Parameters after auth handling: {parameters}")
     if parameters:
         if function_def["method"] == "GET":
             request_params = parameters
@@ -175,6 +186,7 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
         return json.dumps({"error": f"API request failed: {e}"})
 
 def run_simple_server():
+    """Runs the FastMCP server."""
     logger.debug("Starting run_simple_server")
     spec_url = os.environ.get("OPENAPI_SPEC_URL")
     if not spec_url:
