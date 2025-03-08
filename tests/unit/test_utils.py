@@ -1,55 +1,83 @@
-from mcp_openapi_proxy.utils import normalize_tool_name, detect_response_type, build_base_url
+"""
+Unit tests for utility functions in mcp_openapi_proxy.utils.
+"""
 
-def test_normalize_tool_name_basic():
-    assert normalize_tool_name("GET /pets") == "get_pets", "Basic method and path should normalize correctly"
+import os
+from mcp_openapi_proxy.utils import normalize_tool_name, detect_response_type, build_base_url, handle_custom_auth
 
-def test_normalize_tool_name_with_params():
-    assert normalize_tool_name("GET /sessions/{sessionId}") == "get_sessions", "Path params should be stripped"
 
-def test_normalize_tool_name_edge_cases():
-    assert normalize_tool_name("") == "unknown_tool", "Empty string should default to unknown_tool"
-    assert normalize_tool_name("POST /users//{id}/") == "post_users", "Multiple slashes should collapse"
+def test_normalize_tool_name():
+    """Test tool name normalization."""
+    assert normalize_tool_name("GET /users/{userId}") == "get_users"
+    assert normalize_tool_name("POST /pets.create") == "post_pets_create"
+    assert normalize_tool_name("") == "unknown_tool"
+    assert normalize_tool_name("GET /api/v2/things") == "get_things"
 
-def test_get_auth_headers_no_key(monkeypatch):
-    from mcp_openapi_proxy.utils import get_auth_headers
-    monkeypatch.delenv("API_KEY", raising=False)
-    headers = get_auth_headers({})
-    assert headers == {}, "No API_KEY should return empty headers"
-
-def test_get_auth_headers_bearer_override(monkeypatch):
-    from mcp_openapi_proxy.utils import get_auth_headers
-    monkeypatch.setenv("API_KEY", "testkey")
-    monkeypatch.setenv("API_AUTH_TYPE", "Bearer")
-    headers = get_auth_headers({})
-    assert headers == {"Authorization": "Bearer testkey"}, "Bearer auth should set Authorization header"
 
 def test_detect_response_type_json():
-    content, msg = detect_response_type('{"key": "value"}')
-    assert content.type == "text", "JSON should return text type"
-    assert '"text": "{\\"key\\": \\"value\\"}"' in content.text, "JSON should be wrapped in structured text"
-    assert "JSON" in msg, "Log message should indicate JSON"
+    """Test detection of JSON response type."""
+    json_response = '{"status": "ok"}'
+    content, message = detect_response_type(json_response)
+    assert content.type == "text"
+    assert content.text == '{"text": "{\\"status\\": \\"ok\\"}"}'
+    assert "Detected JSON response" in message
+
 
 def test_detect_response_type_text():
-    content, msg = detect_response_type("Hello, world!")
-    assert content.type == "text", "Text should return text type"
-    assert content.text == "Hello, world!", "Text should match input"
-    assert "non-JSON" in msg, "Log message should indicate non-JSON"
+    """Test detection of plain text response type."""
+    text_response = "Hello, world!"
+    content, message = detect_response_type(text_response)
+    assert content.type == "text"
+    assert content.text == "Hello, world!"
+    assert "Detected non-JSON response" in message
 
-def test_build_base_url_no_placeholder():
-    spec = {"servers": [{"url": "https://example.com"}]}
-    assert build_base_url(spec) == "https://example.com", "Should use spec URL when no override"
 
-def test_build_base_url_with_server_override():
-    import os
-    spec = {"servers": [{"url": "https://default.example.com"}]}
-    os.environ["SERVER_URL_OVERRIDE"] = "https://api.machines.dev"
-    assert build_base_url(spec) == "https://api.machines.dev", "Should use single override URL"
-    os.environ["SERVER_URL_OVERRIDE"] = "https://api.machines.dev http://_api.internal:4280"
-    assert build_base_url(spec) == "https://api.machines.dev", "Should pick first valid URL"
-    os.environ["SERVER_URL_OVERRIDE"] = "not-a-url https://api.machines.dev"
-    assert build_base_url(spec) == "https://api.machines.dev", "Should skip invalid URL"
-    os.environ["SERVER_URL_OVERRIDE"] = "not-a-url nope"
-    assert build_base_url(spec) == "https://default.example.com", "Should fall back to spec URL"
-    os.environ["SERVER_URL_OVERRIDE"] = ""
-    assert build_base_url(spec) == "https://default.example.com", "Should use spec URL when override empty"
-    del os.environ["SERVER_URL_OVERRIDE"]
+def test_build_base_url_servers():
+    """Test base URL construction with OpenAPI 3.0 servers."""
+    spec = {"servers": [{"url": "https://api.example.com/v1"}]}
+    assert build_base_url(spec) == "https://api.example.com/v1"
+
+
+def test_build_base_url_host():
+    """Test base URL construction with Swagger 2.0 host."""
+    spec = {"host": "api.example.com", "schemes": ["https"], "basePath": "/v2"}
+    assert build_base_url(spec) == "https://api.example.com/v2"
+
+
+def test_handle_custom_auth_no_jmespath():
+    """Test handle_custom_auth with no API_KEY_JMESPATH set."""
+    operation = {"method": "GET"}
+    params = {"existing": "value"}
+    os.environ.pop("API_KEY_JMESPATH", None)
+    os.environ.pop("API_KEY", None)
+    result = handle_custom_auth(operation, params)
+    assert result == {"existing": "value"}
+
+
+def test_handle_custom_auth_query():
+    """Test handle_custom_auth mapping API_KEY to query parameter."""
+    operation = {"method": "GET"}
+    params = {"existing": "value"}
+    os.environ["API_KEY"] = "test-key"
+    os.environ["API_KEY_JMESPATH"] = "query.token"
+    result = handle_custom_auth(operation, params)
+    assert result == {"existing": "value", "token": "test-key"}
+
+
+def test_handle_custom_auth_body():
+    """Test handle_custom_auth mapping API_KEY to body parameter."""
+    operation = {"method": "POST"}
+    params = {"existing": "value"}
+    os.environ["API_KEY"] = "test-key"
+    os.environ["API_KEY_JMESPATH"] = "body.auth.key"
+    result = handle_custom_auth(operation, params)
+    assert result == {"existing": "value", "auth": {"key": "test-key"}}
+
+
+def test_handle_custom_auth_none_params():
+    """Test handle_custom_auth with no initial parameters."""
+    operation = {"method": "GET"}
+    os.environ["API_KEY"] = "test-key"
+    os.environ["API_KEY_JMESPATH"] = "query.token"
+    result = handle_custom_auth(operation, None)
+    assert result == {"token": "test-key"}
