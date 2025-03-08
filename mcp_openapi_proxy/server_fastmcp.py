@@ -93,6 +93,8 @@ def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
 def call_function(*, function_name: str, parameters: dict = None, env_key: str = "OPENAPI_SPEC_URL") -> str:
     """Calls a function derived from the OpenAPI specification."""
     logger.debug(f"call_function invoked with function_name='{function_name}' and parameters={parameters}")
+    logger.debug(f"API_KEY from env: {os.getenv('API_KEY', '<not set>')[:5] + '...' if os.getenv('API_KEY') else '<not set>'}")
+    logger.debug(f"API_KEY_JMESPATH from env: {os.getenv('API_KEY_JMESPATH', '<not set>')}")
     if not function_name:
         logger.error("function_name is empty or None")
         return json.dumps({"error": "function_name is required"})
