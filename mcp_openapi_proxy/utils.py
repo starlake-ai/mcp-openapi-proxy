@@ -231,7 +231,7 @@ def handle_custom_auth(operation: dict, parameters: dict = None) -> dict:
         parameters (dict, optional): Existing parameters or arguments to modify.
 
     Returns:
-        dict: Updated parameters with API_KEY mapped according to API_KEY_JMESPATH, overwriting conflicts.
+        dict: Updated parameters with API_KEY mapped according to API_KEY_JMESPATH, excluding path params.
     """
     if parameters is None:
         parameters = {}
@@ -244,50 +244,36 @@ def handle_custom_auth(operation: dict, parameters: dict = None) -> dict:
         logger.debug("No API_KEY or API_KEY_JMESPATH set, skipping custom auth handling.")
         return parameters
 
-    # Structure to apply JMESPath: separate query params and body
+    method = operation.get("method", "GET").upper()
     request_data = {"query": {}, "body": {}}
-    if parameters:
-        # Assume GET params go to query, others to body (simplified heuristic)
-        for key, value in parameters.items():
-            if operation.get("method", "GET").upper() == "GET":
-                request_data["query"][key] = value
-            else:
-                request_data["body"][key] = value
+    for param in operation.get("parameters", []):
+        param_name = param.get("name")
+        if param_name in parameters:
+            if param.get("in") == "query":
+                request_data["query"][param_name] = parameters[param_name]
+            elif param.get("in") == "header":
+                request_data["body"][param_name] = parameters[param_name]
+            # Path params skipped here - handled by dispatcher/call_function
 
     try:
-        # Compile JMESPath expression and set the API key, overwriting existing
-        expr = jmespath.compile(jmespath_expr)
-        updated_data = expr.search(request_data, options=jmespath.Options(dict_cls=dict))
-        if updated_data is None:
-            # If path doesn't exist, create it
-            parts = jmespath_expr.split('.')
-            current = request_data
-            for i, part in enumerate(parts):
-                if i == len(parts) - 1:
-                    current[part] = api_key  # Overwrite here
+        if jmespath_expr:
+            if "." in jmespath_expr or "[" in jmespath_expr:
+                nested_params = jmespath.search(jmespath_expr, {"api_key": api_key})
+                if nested_params:
+                    request_data["query"] = {**request_data["query"], **nested_params}
                 else:
-                    current.setdefault(part, {})
-                    current = current[part]
-        else:
-            # Overwrite existing value at the JMESPath location
-            parts = jmespath_expr.split('.')
-            current = request_data
-            for i, part in enumerate(parts):
-                if i == len(parts) - 1:
-                    current[part] = api_key  # Force overwrite
-                else:
-                    current = current.setdefault(part, {})
-        logger.debug(f"Applied API_KEY to {jmespath_expr}, overwriting any existing: {redact_api_key(api_key)}")
+                    logger.warning(f"JMESPath expression {jmespath_expr} returned no value.")
+            else:
+                request_data["query"][jmespath_expr] = api_key
+        logger.debug(f"Applied API_KEY to {jmespath_expr}: {redact_api_key(api_key)}")
     except Exception as e:
-        logger.error(f"Failed to apply API_KEY_JMESPATH '{jmespath_expr}': {e}")
-        return parameters
+        logger.error(f"Error applying JMESPath expression {jmespath_expr}: {e}")
 
-    # Flatten back to parameters, overwriting original params
-    if operation.get("method", "GET").upper() == "GET":
+    if method == "GET":
         parameters = {**parameters, **request_data["query"]}
     else:
         parameters = {**parameters, **request_data["body"]}
-
+    logger.debug(f"Parameters after custom auth merge: {parameters}")
     return parameters
 
 def map_schema_to_tools(schema: dict) -> list:
