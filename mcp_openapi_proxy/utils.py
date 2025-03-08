@@ -292,7 +292,7 @@ def detect_response_type(response_text: str) -> Tuple[types.TextContent, str]:
 
 def build_base_url(spec: dict) -> str:
     """
-    Constructs the base URL for API requests, respecting SERVER_URL_OVERRIDE and handling placeholders.
+    Constructs the base URL for API requests, respecting SERVER_URL_OVERRIDE and replacing placeholders.
 
     Args:
         spec (dict): OpenAPI specification containing servers or host information.
@@ -311,7 +311,7 @@ def build_base_url(spec: dict) -> str:
     if 'servers' in spec and spec['servers']:
         default_server = spec['servers'][0].get('url', '').rstrip('/')
         if "{tenant}" in default_server or "your-domain" in default_server:
-            logger.warning(f"Placeholder detected in spec server URL: {default_server}. SERVER_URL_OVERRIDE must be set to replace it.")
+            logger.error(f"Placeholder detected in spec server URL: {default_server}. SERVER_URL_OVERRIDE must be set to a valid domain.")
             return ""  # Force user to set SERVER_URL_OVERRIDE
         logger.debug(f"Using OpenAPI 3.0 servers base URL: {default_server}")
         return default_server

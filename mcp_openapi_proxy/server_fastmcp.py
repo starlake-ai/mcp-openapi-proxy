@@ -137,7 +137,9 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
     logger.debug(f"Final API URL: {api_url}")
     request_params = {}
     request_body = None
-    headers = {"Content-Type": "application/json"}
+    headers = {}
+    if function_def["method"] != "GET":
+        headers["Content-Type"] = "application/json"
     headers.update(get_auth_headers(spec))  # Use centralized auth logic
     if parameters is None:
         logger.debug("Parameters is None, using empty dict")

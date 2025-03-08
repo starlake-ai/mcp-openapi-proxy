@@ -68,6 +68,8 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
         path_params = {}
         query_params = {}
         headers = {}
+        if method != "GET":
+            headers["Content-Type"] = "application/json"
         headers.update(get_auth_headers(openapi_spec_data))
         request_body = None
 
