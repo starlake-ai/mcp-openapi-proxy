@@ -152,7 +152,7 @@ def is_tool_whitelisted(endpoint: str) -> bool:
     return False
 
 def fetch_openapi_spec(spec_url: str) -> dict:
-    """Fetches and parses OpenAPI specification from a URL or file."""
+    """Fetches and parses OpenAPI specification from a URL or file, assuming JSON if no suffix."""
     try:
         if spec_url.startswith("file://"):
             spec_path = spec_url.replace("file://", "")
@@ -164,12 +164,14 @@ def fetch_openapi_spec(spec_url: str) -> dict:
             response.raise_for_status()
             content = response.text
             logger.debug(f"Fetched OpenAPI spec from {spec_url}")
+        
+        # Check suffix, default to JSON if none
         if spec_url.endswith(('.yaml', '.yml')):
             spec = yaml.safe_load(content)
             logger.debug(f"Parsed YAML OpenAPI spec from {spec_url}")
         else:
             spec = json.loads(content)
-            logger.debug(f"Parsed JSON OpenAPI spec from {spec_url}")
+            logger.debug(f"Parsed JSON OpenAPI spec from {spec_url} (no suffix assumed JSON)")
         return spec
     except (requests.exceptions.RequestException, FileNotFoundError) as e:
         logger.error(f"Error fetching OpenAPI spec from {spec_url}: {e}")
@@ -233,11 +235,11 @@ def handle_custom_auth(operation: dict, parameters: dict = None) -> dict:
     """
     if parameters is None:
         parameters = {}
-    
+
     logger.debug(f"Raw parameters before auth handling: {parameters}")
     api_key = os.getenv("API_KEY")
     jmespath_expr = os.getenv("API_KEY_JMESPATH")
-    
+
     if not api_key or not jmespath_expr:
         logger.debug("No API_KEY or API_KEY_JMESPATH set, skipping custom auth handling.")
         return parameters
@@ -285,7 +287,7 @@ def handle_custom_auth(operation: dict, parameters: dict = None) -> dict:
         parameters = {**parameters, **request_data["query"]}
     else:
         parameters = {**parameters, **request_data["body"]}
-    
+
     return parameters
 
 def map_schema_to_tools(schema: dict) -> list:
