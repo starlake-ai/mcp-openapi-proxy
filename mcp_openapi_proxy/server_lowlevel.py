@@ -15,7 +15,7 @@ from mcp import types
 from mcp.server.lowlevel import Server
 from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
-from mcp_openapi_proxy.utils import setup_logging, normalize_tool_name, is_tool_whitelisted, fetch_openapi_spec, get_auth_headers, detect_response_type, build_base_url
+from mcp_openapi_proxy.utils import setup_logging, normalize_tool_name, is_tool_whitelisted, fetch_openapi_spec, get_auth_headers, detect_response_type, build_base_url, handle_custom_auth
 
 DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
 logger = setup_logging(debug=DEBUG)
@@ -50,11 +50,14 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                     content=[types.TextContent(type="text", text=f"Could not find OpenAPI operation for function: {function_name}")]
                 )
             )
+
+        # Apply custom auth mapping if API_KEY_JMESPATH is set
+        arguments = handle_custom_auth(operation_details, arguments)
+
         path = operation_details['path']
         method = operation_details['method']
         operation = operation_details['operation']
 
-        # Build base URL using the utility function
         base_url = build_base_url(openapi_spec_data)
         if not base_url:
             logger.critical("Failed to construct base URL from spec or SERVER_URL_OVERRIDE.")
@@ -73,7 +76,6 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
         headers.update(get_auth_headers(openapi_spec_data))
         request_body = None
 
-        # Extract path and query parameters from arguments
         if isinstance(arguments, dict):
             params = arguments
             if 'parameters' in arguments:
@@ -85,7 +87,6 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                         content=[types.TextContent(type="text", text="Invalid parameters format")]
                     )
                 )
-            # Handle path parameters
             path_params_in_openapi = [
                 param['name'] for param in operation.get('parameters', []) if param['in'] == 'path'
             ]
@@ -93,7 +94,8 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                 if param_name in params:
                     path_params[param_name] = params.pop(param_name)
                     api_url = api_url.replace(f"{{{param_name}}}", str(path_params[param_name]))
-            query_params = params
+            query_params = params if method == "GET" else {}
+            request_body = params if method != "GET" else None
         else:
             logger.debug("No valid arguments, proceeding without query params")
 
@@ -109,18 +111,13 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                 url=api_url,
                 params=query_params if query_params else None,
                 headers=headers,
-                json=None if method == "GET" else request_body
+                json=request_body if request_body else None
             )
             response.raise_for_status()
             response_text = response.text or "No response body"
-
-            # Detect response type using shared utility
             content, log_message = detect_response_type(response_text)
             logger.debug(log_message)
-
-            # Prepare content for MCP
             final_content = [content]
-
         except requests.exceptions.RequestException as e:
             logger.error(f"API request failed: {e}")
             return types.ServerResult(
@@ -155,7 +152,7 @@ async def list_tools(request: types.ListToolsRequest) -> types.ServerResult:
     return result
 
 def register_functions(spec: Dict) -> List[types.Tool]:
-    """Register functions (tools) dynamically based on the OpenAPI specification."""
+    """Registers functions (tools) dynamically based on the OpenAPI specification."""
     global tools
     tools = []
 
@@ -188,7 +185,6 @@ def register_functions(spec: Dict) -> List[types.Tool]:
                 function_name = normalize_tool_name(raw_name)
                 description = operation.get('summary', operation.get('description', 'No description available'))
 
-                # Build inputSchema from operation parameters
                 input_schema = {
                     "type": "object",
                     "properties": {},
@@ -223,7 +219,7 @@ def register_functions(spec: Dict) -> List[types.Tool]:
     return tools
 
 def lookup_operation_details(function_name: str, spec: Dict) -> Dict or None:
-    """Lookup OpenAPI operation details (path, method, operation) based on function name."""
+    """Looks up OpenAPI operation details based on function name."""
     if not spec or 'paths' not in spec:
         return None
     for path, path_item in spec['paths'].items():
@@ -237,7 +233,7 @@ def lookup_operation_details(function_name: str, spec: Dict) -> Dict or None:
     return None
 
 async def start_server():
-    """Start the Low-Level MCP server."""
+    """Starts the Low-Level MCP server."""
     logger.debug("Starting Low-Level MCP server...")
     async with stdio_server() as (read_stream, write_stream):
         await mcp.run(
@@ -251,7 +247,7 @@ async def start_server():
         )
 
 def run_server():
-    """Run the Low-Level Any OpenAPI server."""
+    """Runs the Low-Level Any OpenAPI server."""
     global openapi_spec_data
     try:
         openapi_url = os.getenv('OPENAPI_SPEC_URL')

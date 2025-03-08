@@ -11,6 +11,7 @@ import requests
 import re
 import json
 import yaml
+import jmespath
 from urllib.parse import urlparse
 from dotenv import load_dotenv
 from mcp import types
@@ -59,12 +60,7 @@ def redact_api_key(key: str) -> str:
 
 def normalize_tool_name(name: str) -> str:
     """
-    Normalizes tool names into a clean function name without parameters, 
-    ensuring compliance with ^[a-zA-Z0-9_-]+$.
-
-    For example:
-    - 'GET /sessions/{sessionId}/messages/{messageUUID}' becomes 'get_sessions_messages'
-    - 'POST /users.create' becomes 'post_users_create'
+    Normalizes tool names into a clean function name without parameters.
 
     Args:
         name (str): Raw method and path, e.g., 'GET /sessions/{sessionId}/messages/{messageUUID}'.
@@ -96,7 +92,7 @@ def normalize_tool_name(name: str) -> str:
             continue
         func_name += f"_{part.replace('.', '_')}"
     func_name = re.sub(r"[^a-zA-Z0-9_-]", "_", func_name)
-    func_name = re.sub(r"_+", "_", func_name).strip("_").lower()  # Force lowercase
+    func_name = re.sub(r"_+", "_", func_name).strip("_").lower()
     if len(func_name) > 64:
         func_name = func_name[:64]
     logger.debug(f"Normalized tool name from '{name}' to '{func_name}'")
@@ -112,13 +108,12 @@ def get_tool_prefix() -> str:
 def is_tool_whitelisted(endpoint: str) -> bool:
     """
     Checks if an endpoint matches any partial path in TOOL_WHITELIST.
-    Supports exact matches, prefix matches, and partial path matches with variables.
 
     Args:
-        endpoint (str): The endpoint path from the OpenAPI spec (e.g., '/sessions/{sessionId}/messages').
+        endpoint (str): The endpoint path from the OpenAPI spec.
 
     Returns:
-        bool: True if the endpoint matches any whitelist item partially or exactly, False otherwise.
+        bool: True if the endpoint matches any whitelist item, False otherwise.
     """
     whitelist = os.getenv("TOOL_WHITELIST", "")
     logger.debug(f"Checking whitelist - endpoint: {endpoint}, TOOL_WHITELIST: {whitelist}")
@@ -157,8 +152,7 @@ def is_tool_whitelisted(endpoint: str) -> bool:
     return False
 
 def fetch_openapi_spec(spec_url: str) -> dict:
-    """Fetches and parses OpenAPI specification from a URL or file, supporting JSON and YAML formats."""
-    logger = logging.getLogger(__name__)
+    """Fetches and parses OpenAPI specification from a URL or file."""
     try:
         if spec_url.startswith("file://"):
             spec_path = spec_url.replace("file://", "")
@@ -226,6 +220,68 @@ def get_auth_headers(spec: dict, api_key_env: str = "API_KEY") -> dict:
     logger.warning(f"No clear auth type in spec, using raw API key: Authorization: {redact_api_key(auth_token)}")
     return headers
 
+def handle_custom_auth(operation: dict, parameters: dict = None) -> dict:
+    """
+    Applies custom authentication mapping using API_KEY_JMESPATH if provided.
+
+    Args:
+        operation (dict): The OpenAPI operation object for the endpoint.
+        parameters (dict, optional): Existing parameters or arguments to modify.
+
+    Returns:
+        dict: Updated parameters with API_KEY mapped according to API_KEY_JMESPATH.
+    """
+    if parameters is None:
+        parameters = {}
+    
+    api_key = os.getenv("API_KEY")
+    jmespath_expr = os.getenv("API_KEY_JMESPATH")
+    
+    if not api_key or not jmespath_expr:
+        logger.debug("No API_KEY or API_KEY_JMESPATH set, skipping custom auth handling.")
+        return parameters
+
+    # Structure to apply JMESPath: separate query params and body
+    request_data = {"query": {}, "body": {}}
+    if parameters:
+        # Assume GET params go to query, others to body (simplified heuristic)
+        for key, value in parameters.items():
+            if operation.get("method", "GET").upper() == "GET":
+                request_data["query"][key] = value
+            else:
+                request_data["body"][key] = value
+
+    try:
+        # Compile JMESPath expression and set the API key
+        expr = jmespath.compile(jmespath_expr)
+        updated_data = expr.search(request_data, options=jmespath.Options(dict_cls=dict))
+        if updated_data is None:
+            # If path doesn't exist, create it
+            parts = jmespath_expr.split('.')
+            current = request_data
+            for i, part in enumerate(parts):
+                if i == len(parts) - 1:
+                    current[part] = api_key
+                else:
+                    current.setdefault(part, {})
+                    current = current[part]
+        else:
+            # Update existing structure
+            expr = jmespath.compile(jmespath_expr)
+            request_data = jmespath.search(expr, request_data, api_key)
+        logger.debug(f"Applied API_KEY to {jmespath_expr}: {redact_api_key(api_key)}")
+    except Exception as e:
+        logger.error(f"Failed to apply API_KEY_JMESPATH '{jmespath_expr}': {e}")
+        return parameters
+
+    # Flatten back to parameters
+    if operation.get("method", "GET").upper() == "GET":
+        parameters.update(request_data["query"])
+    else:
+        parameters.update(request_data["body"])
+    
+    return parameters
+
 def map_schema_to_tools(schema: dict) -> list:
     """Maps a schema to a list of MCP tools."""
     tools = []
@@ -245,7 +301,7 @@ def map_schema_to_tools(schema: dict) -> list:
 
 def detect_response_type(response_text: str) -> tuple[types.TextContent, str]:
     """
-    Detect the response type (JSON or text) and return the appropriate MCP content object.
+    Detects the response type (JSON or text) and returns the appropriate MCP content object.
 
     Args:
         response_text (str): The raw response text from the HTTP request.
@@ -271,7 +327,7 @@ def build_base_url(spec: dict) -> str:
         spec (dict): OpenAPI specification containing servers or host information.
 
     Returns:
-        str: The constructed base URL, normalized to remove trailing slashes, or the spec URL if placeholders are present.
+        str: The constructed base URL, or empty string if not determinable.
     """
     override = os.getenv("SERVER_URL_OVERRIDE", "").strip()
     if override:
