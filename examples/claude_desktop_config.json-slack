@@ -7,9 +7,10 @@
       ],
       "env": {
         "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/slackapi/slack-api-specs/master/web-api/slack_web_openapi_v2.json",
+        "SERVER_URL_OVERRIDE": "https://slack.com/api",
         "TOOL_WHITELIST": "/chat,/bots,/conversations,/reminders,/files",
         "API_KEY": "xoxb-your-bot-token-here",
-        "API_KEY_JMESPATH": "query.token",
+        "API_KEY_JMESPATH": "token",
         "TOOL_NAME_PREFIX": "slack_"
       }
     }
