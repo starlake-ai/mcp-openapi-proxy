@@ -31,6 +31,8 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
     try:
         function_name = request.params.name
         logger.debug(f"Dispatcher received CallToolRequest for function: {function_name}")
+        logger.debug(f"API_KEY from env: {os.getenv('API_KEY', '<not set>')[:5] + '...' if os.getenv('API_KEY') else '<not set>'}")
+        logger.debug(f"API_KEY_JMESPATH from env: {os.getenv('API_KEY_JMESPATH', '<not set>')}")
         tool = next((tool for tool in tools if tool.name == function_name), None)
         if not tool:
             logger.error(f"Unknown function requested: {function_name}")
@@ -53,6 +55,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
 
         # Apply custom auth mapping if API_KEY_JMESPATH is set
         arguments = handle_custom_auth(operation_details, arguments)
+        logger.debug(f"Arguments after auth handling: {arguments}")
 
         path = operation_details['path']
         method = operation_details['method']
