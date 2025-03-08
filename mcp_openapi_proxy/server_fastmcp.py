@@ -46,7 +46,7 @@ def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
     if not paths:
         logger.debug("No paths found in spec.")
         return json.dumps([])
-    functions = []
+    functions = {}
     for path, path_item in paths.items():
         logger.debug(f"Processing path: {path}")
         if not path_item:
@@ -67,19 +67,22 @@ def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
                 continue
             raw_name = f"{method.upper()} {path}"
             function_name = normalize_tool_name(raw_name)
+            if function_name in functions:
+                logger.debug(f"Skipping duplicate tool name: {function_name}")
+                continue
             function_description = operation.get("summary", operation.get("description", "No description provided."))
             logger.debug(f"Registering function: {function_name} - {function_description}")
-            functions.append({
+            functions[function_name] = {
                 "name": function_name,
                 "description": function_description,
                 "path": path,
                 "method": method.upper(),
                 "operationId": operation.get("operationId"),
                 "original_name": raw_name
-            })
+            }
     logger.info(f"Discovered {len(functions)} functions from the OpenAPI specification.")
-    logger.debug(f"Functions list: {functions}")
-    return json.dumps(functions, indent=2)
+    logger.debug(f"Functions list: {list(functions.values())}")
+    return json.dumps(list(functions.values()), indent=2)
 
 @mcp.tool()
 def call_function(*, function_name: str, parameters: dict = None, env_key: str = "OPENAPI_SPEC_URL") -> str:

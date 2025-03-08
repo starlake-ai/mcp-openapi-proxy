@@ -349,7 +349,6 @@ Update your MCP ecosystem configuration as follows:
             "args": ["mcp-openapi-proxy"],
             "env": {
                 "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/abhiaagarwal/peristera/refs/heads/main/fly-machines-gen/fixed_spec.json",
-                "SERVER_URL_OVERRIDE": "https://api.machines.dev http://_api.internal:4280",
                 "API_KEY": "<your_flyio_token_here>"
             }
         }

@@ -18,9 +18,10 @@ def reset_env_and_module(request):
         if key.startswith("OPENAPI_SPEC_URL"):
             del os.environ[key]
     os.environ["DEBUG"] = "true"
-    # Reload server_fastmcp
+    # Reload server_fastmcp to reset tools implicitly
     if 'mcp_openapi_proxy.server_fastmcp' in sys.modules:
         del sys.modules['mcp_openapi_proxy.server_fastmcp']
+    import mcp_openapi_proxy.server_fastmcp  # Fresh import re-registers tools
     yield env_key
     # Restore original env
     os.environ.clear()

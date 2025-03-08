@@ -11,11 +11,10 @@ import requests
 import re
 import json
 import yaml
+from urllib.parse import urlparse
 from dotenv import load_dotenv
 from mcp import types
-from typing import Tuple, Union, Any
 
-# Load environment variables from .env if present
 load_dotenv()
 
 OPENAPI_SPEC_URL = os.getenv("OPENAPI_SPEC_URL")
@@ -33,10 +32,8 @@ def setup_logging(debug: bool = False) -> logging.Logger:
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG if debug else logging.INFO)
     logger.propagate = False
-
     for handler in logger.handlers[:]:
         logger.removeHandler(handler)
-
     if debug:
         stderr_handler = logging.StreamHandler(sys.stderr)
         stderr_handler.setLevel(logging.DEBUG)
@@ -63,7 +60,7 @@ def redact_api_key(key: str) -> str:
 def normalize_tool_name(name: str) -> str:
     """
     Normalizes tool names into a clean function name without parameters, 
-    ensuring compliance with^[a-zA-Z0-9_-]+$.
+    ensuring compliance with ^[a-zA-Z0-9_-]+$.
 
     For example:
     - 'GET /sessions/{sessionId}/messages/{messageUUID}' becomes 'get_sessions_messages'
@@ -75,15 +72,11 @@ def normalize_tool_name(name: str) -> str:
     Returns:
         str: Normalized tool name without special characters.
     """
-    logger = logging.getLogger(__name__)
     if not name or not isinstance(name, str):
         logger.warning(f"Invalid tool name input: {name}. Defaulting to 'unknown_tool'.")
         return "unknown_tool"
-
-    # Split into method and path, handle cases with or without space
     parts = name.strip().split(" ", 1)
     if len(parts) != 2:
-        # Check if it’s a dot-separated name (e.g., for lowlevel mode edge cases)
         if "." in name:
             parts = name.split(".", 1)
             method, path = parts[0].lower(), parts[1].replace(".", "_")
@@ -93,25 +86,19 @@ def normalize_tool_name(name: str) -> str:
     else:
         method, path = parts
         method = method.lower()
-
-    # Handle path: remove slashes, replace special chars, skip params
     path_parts = [p for p in path.split("/") if p and p not in ("api", "v2")]
     if not path_parts:
         logger.warning(f"No valid path segments in '{path}'. Using '{method}_unknown'.")
         return f"{method}_unknown"
-
     func_name = method
     for part in path_parts:
         if "{" in part and "}" in part:
-            continue  # Skip params, they'll go in inputSchema
-        func_name += f"_{part.replace('.', '_')}"  # Replace dots with underscores
-
-    # Clean up to match ^[a-zA-Z0-9_-]+$
+            continue
+        func_name += f"_{part.replace('.', '_')}"
     func_name = re.sub(r"[^a-zA-Z0-9_-]", "_", func_name)
-    func_name = re.sub(r"_+", "_", func_name).strip("_")
+    func_name = re.sub(r"_+", "_", func_name).strip("_").lower()  # Force lowercase
     if len(func_name) > 64:
         func_name = func_name[:64]
-
     logger.debug(f"Normalized tool name from '{name}' to '{func_name}'")
     return func_name or "unknown_tool"
 
@@ -138,33 +125,27 @@ def is_tool_whitelisted(endpoint: str) -> bool:
     if not whitelist:
         logger.debug("No TOOL_WHITELIST set, allowing all endpoints.")
         return True
-
     whitelist_items = [item.strip() for item in whitelist.split(",") if item.strip()]
     if not whitelist_items:
         logger.debug("TOOL_WHITELIST is empty after splitting, allowing all endpoints.")
         return True
-
-    endpoint_parts = [p for p in endpoint.split("/") if p]  # Split and filter empty
-
+    endpoint_parts = [p for p in endpoint.split("/") if p]
     for item in whitelist_items:
-        # Exact match
         if endpoint == item:
             logger.debug(f"Exact match found for {endpoint} in whitelist")
             return True
-
-        # Prefix match (no vars in item)
         if '{' not in item and endpoint.startswith(item):
             logger.debug(f"Prefix match found: {item} starts {endpoint}")
             return True
-
-        # Partial path match with variables
         item_parts = [p for p in item.split("/") if p]
         if len(item_parts) <= len(endpoint_parts):
             match = True
             for i, item_part in enumerate(item_parts):
+                if i >= len(endpoint_parts):
+                    match = False
+                    break
                 endpoint_part = endpoint_parts[i]
                 if "{" in item_part and "}" in item_part:
-                    # Variable part, any value matches
                     continue
                 elif item_part != endpoint_part:
                     match = False
@@ -172,7 +153,6 @@ def is_tool_whitelisted(endpoint: str) -> bool:
             if match:
                 logger.debug(f"Partial path match found for {endpoint} using {item}")
                 return True
-
     logger.debug(f"No whitelist match found for {endpoint}")
     return False
 
@@ -190,7 +170,6 @@ def fetch_openapi_spec(spec_url: str) -> dict:
             response.raise_for_status()
             content = response.text
             logger.debug(f"Fetched OpenAPI spec from {spec_url}")
-
         if spec_url.endswith(('.yaml', '.yml')):
             spec = yaml.safe_load(content)
             logger.debug(f"Parsed YAML OpenAPI spec from {spec_url}")
@@ -198,17 +177,11 @@ def fetch_openapi_spec(spec_url: str) -> dict:
             spec = json.loads(content)
             logger.debug(f"Parsed JSON OpenAPI spec from {spec_url}")
         return spec
-    except requests.exceptions.RequestException as e:
+    except (requests.exceptions.RequestException, FileNotFoundError) as e:
         logger.error(f"Error fetching OpenAPI spec from {spec_url}: {e}")
         return None
     except (json.JSONDecodeError, yaml.YAMLError) as e:
         logger.error(f"Error parsing OpenAPI spec from {spec_url}: {e}")
-        return None
-    except FileNotFoundError as e:
-        logger.error(f"Local file not found for OpenAPI spec at {spec_url}: {e}")
-        return None
-    except Exception as e:
-        logger.error(f"Unexpected error with OpenAPI spec from {spec_url}: {e}")
         return None
 
 def get_auth_headers(spec: dict, api_key_env: str = "API_KEY") -> dict:
@@ -227,22 +200,18 @@ def get_auth_headers(spec: dict, api_key_env: str = "API_KEY") -> dict:
     if not auth_token:
         logger.debug(f"No {api_key_env} set, skipping auth headers.")
         return headers
-
-    # Check for override first
     auth_type_override = os.getenv("API_AUTH_TYPE")
     if auth_type_override:
         headers["Authorization"] = f"{auth_type_override} {auth_token}"
         logger.debug(f"Using API_AUTH_TYPE override: Authorization: {auth_type_override} {redact_api_key(auth_token)}")
         return headers
-
-    # Parse spec’s security definitions
     security_defs = spec.get('securityDefinitions', {})
     for name, definition in security_defs.items():
         if definition.get('type') == 'apiKey' and definition.get('in') == 'header' and definition.get('name') == 'Authorization':
             desc = definition.get('description', '')
             match = re.search(r'(\w+(?:-\w+)*)\s+<token>', desc)
             if match:
-                prefix = match.group(1)  # e.g., "Api-Key"
+                prefix = match.group(1)
                 headers["Authorization"] = f"{prefix} {auth_token}"
                 logger.debug(f"Using apiKey with prefix from spec description: Authorization: {prefix} {redact_api_key(auth_token)}")
             else:
@@ -253,15 +222,12 @@ def get_auth_headers(spec: dict, api_key_env: str = "API_KEY") -> dict:
             headers["Authorization"] = f"Bearer {auth_token}"
             logger.debug(f"Using Bearer auth from spec: Authorization: Bearer {redact_api_key(auth_token)}")
             return headers
-
-    # Fallback if no clear auth type
     headers["Authorization"] = auth_token
     logger.warning(f"No clear auth type in spec, using raw API key: Authorization: {redact_api_key(auth_token)}")
     return headers
 
 def map_schema_to_tools(schema: dict) -> list:
     """Maps a schema to a list of MCP tools."""
-    from mcp import types
     tools = []
     classes = schema.get("classes", [])
     for entry in classes:
@@ -269,17 +235,15 @@ def map_schema_to_tools(schema: dict) -> list:
         if not cls:
             continue
         tool_name = normalize_tool_name(cls)
-        prefix = os.getenv("TOOL_NAME_PREFIX", "")
+        prefix = get_tool_prefix()
         if prefix:
-            if not prefix.endswith("_"):
-                prefix += "_"
             tool_name = prefix + tool_name
         description = f"Tool for class {cls}: " + json.dumps(entry)
         tool = types.Tool(name=tool_name, description=description, inputSchema={"type": "object"})
         tools.append(tool)
     return tools
 
-def detect_response_type(response_text: str) -> Tuple[types.TextContent, str]:
+def detect_response_type(response_text: str) -> tuple[types.TextContent, str]:
     """
     Detect the response type (JSON or text) and return the appropriate MCP content object.
 
@@ -289,10 +253,9 @@ def detect_response_type(response_text: str) -> Tuple[types.TextContent, str]:
     Returns:
         Tuple: (content object, log message)
     """
-    logger = logging.getLogger(__name__)
     try:
-        json_data = json.loads(response_text)  # Validate and parse JSON
-        structured_text = {"text": response_text}  # Wrap in a "text" key like mcp-flowise
+        json_data = json.loads(response_text)
+        structured_text = {"text": response_text}
         content = types.TextContent(type="text", text=json.dumps(structured_text))
         log_message = "Detected JSON response, wrapped in structured text format"
     except json.JSONDecodeError:
@@ -310,24 +273,22 @@ def build_base_url(spec: dict) -> str:
     Returns:
         str: The constructed base URL, normalized to remove trailing slashes, or the spec URL if placeholders are present.
     """
-    logger = logging.getLogger(__name__)
     override = os.getenv("SERVER_URL_OVERRIDE", "").strip()
-
-    # If SERVER_URL_OVERRIDE is set, use it and ignore the spec
     if override:
-        logger.debug(f"SERVER_URL_OVERRIDE set, using: {override}")
-        return override.rstrip('/')
-
-    # Fallback to spec-defined servers
+        urls = override.split()
+        for url in urls:
+            parsed = urlparse(url)
+            if parsed.scheme and parsed.netloc:
+                logger.debug(f"SERVER_URL_OVERRIDE set, using first valid URL: {url}")
+                return url.rstrip('/')
+        logger.error(f"No valid URLs found in SERVER_URL_OVERRIDE: {override}")
     if 'servers' in spec and spec['servers']:
         default_server = spec['servers'][0].get('url', '').rstrip('/')
         if "{tenant}" in default_server or "your-domain" in default_server:
-            logger.warning(f"Placeholder detected in spec server URL: {default_server}. Consider setting SERVER_URL_OVERRIDE to a valid domain.")
-            return default_server  # Proceed with placeholder URL instead of failing
+            logger.warning(f"Placeholder detected in spec server URL: {default_server}. Consider setting SERVER_URL_OVERRIDE.")
+            return default_server
         logger.debug(f"Using OpenAPI 3.0 servers base URL: {default_server}")
         return default_server
-
-    # Fallback for Swagger 2.0
     if 'host' in spec:
         scheme = spec.get('schemes', ['https'])[0]
         host = spec['host'].strip()
@@ -337,6 +298,5 @@ def build_base_url(spec: dict) -> str:
             base_url += f"/{base_path}"
         logger.debug(f"Using Swagger 2.0 host/basePath base URL: {base_url}")
         return base_url.rstrip('/')
-
     logger.critical("No servers or host defined in OpenAPI spec, and no SERVER_URL_OVERRIDE set.")
     return ""
