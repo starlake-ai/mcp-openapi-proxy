@@ -222,14 +222,14 @@ def get_auth_headers(spec: dict, api_key_env: str = "API_KEY") -> dict:
 
 def handle_custom_auth(operation: dict, parameters: dict = None) -> dict:
     """
-    Applies custom authentication mapping using API_KEY_JMESPATH if provided.
+    Applies custom authentication mapping using API_KEY_JMESPATH if provided, overwriting existing keys.
 
     Args:
         operation (dict): The OpenAPI operation object for the endpoint.
         parameters (dict, optional): Existing parameters or arguments to modify.
 
     Returns:
-        dict: Updated parameters with API_KEY mapped according to API_KEY_JMESPATH.
+        dict: Updated parameters with API_KEY mapped according to API_KEY_JMESPATH, overwriting conflicts.
     """
     if parameters is None:
         parameters = {}
@@ -252,7 +252,7 @@ def handle_custom_auth(operation: dict, parameters: dict = None) -> dict:
                 request_data["body"][key] = value
 
     try:
-        # Compile JMESPath expression and set the API key
+        # Compile JMESPath expression and set the API key, overwriting existing
         expr = jmespath.compile(jmespath_expr)
         updated_data = expr.search(request_data, options=jmespath.Options(dict_cls=dict))
         if updated_data is None:
@@ -261,24 +261,29 @@ def handle_custom_auth(operation: dict, parameters: dict = None) -> dict:
             current = request_data
             for i, part in enumerate(parts):
                 if i == len(parts) - 1:
-                    current[part] = api_key
+                    current[part] = api_key  # Overwrite here
                 else:
                     current.setdefault(part, {})
                     current = current[part]
         else:
-            # Update existing structure
-            expr = jmespath.compile(jmespath_expr)
-            request_data = jmespath.search(expr, request_data, api_key)
-        logger.debug(f"Applied API_KEY to {jmespath_expr}: {redact_api_key(api_key)}")
+            # Overwrite existing value at the JMESPath location
+            parts = jmespath_expr.split('.')
+            current = request_data
+            for i, part in enumerate(parts):
+                if i == len(parts) - 1:
+                    current[part] = api_key  # Force overwrite
+                else:
+                    current = current.setdefault(part, {})
+        logger.debug(f"Applied API_KEY to {jmespath_expr}, overwriting any existing: {redact_api_key(api_key)}")
     except Exception as e:
         logger.error(f"Failed to apply API_KEY_JMESPATH '{jmespath_expr}': {e}")
         return parameters
 
-    # Flatten back to parameters
+    # Flatten back to parameters, overwriting original params
     if operation.get("method", "GET").upper() == "GET":
-        parameters.update(request_data["query"])
+        parameters = {**parameters, **request_data["query"]}
     else:
-        parameters.update(request_data["body"])
+        parameters = {**parameters, **request_data["body"]}
     
     return parameters
 
