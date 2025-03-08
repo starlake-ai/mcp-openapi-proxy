@@ -42,7 +42,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                 )
             )
         arguments = request.params.arguments or {}
-        logger.debug(f"Raw function arguments: {arguments}")
+        logger.debug(f"Raw function arguments before auth: {arguments}")
 
         operation_details = lookup_operation_details(function_name, openapi_spec_data)
         if not operation_details:
@@ -53,13 +53,12 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                 )
             )
 
-        # Apply custom auth mapping if API_KEY_JMESPATH is set
-        arguments = handle_custom_auth(operation_details, arguments)
-        logger.debug(f"Arguments after auth handling: {arguments}")
+        # Apply custom auth mapping—mimic FastMCP’s flow
+        parameters = handle_custom_auth(operation_details['operation'], arguments)
+        logger.debug(f"Parameters after auth handling: {parameters}")
 
         path = operation_details['path']
         method = operation_details['method']
-        operation = operation_details['operation']
 
         base_url = build_base_url(openapi_spec_data)
         if not base_url:
@@ -71,50 +70,33 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
             )
 
         api_url = f"{base_url.rstrip('/')}/{path.lstrip('/')}"
-        path_params = {}
-        query_params = {}
         headers = {}
         if method != "GET":
             headers["Content-Type"] = "application/json"
         headers.update(get_auth_headers(openapi_spec_data))
+        request_params = {}
         request_body = None
 
-        if isinstance(arguments, dict):
-            params = arguments
-            if 'parameters' in arguments:
-                params = arguments['parameters']
-            if not isinstance(params, dict):
-                logger.error(f"Expected arguments or parameters to be a dict, got: {type(params)}")
-                return types.ServerResult(
-                    root=types.CallToolResult(
-                        content=[types.TextContent(type="text", text="Invalid parameters format")]
-                    )
-                )
-            path_params_in_openapi = [
-                param['name'] for param in operation.get('parameters', []) if param['in'] == 'path'
-            ]
-            for param_name in path_params_in_openapi:
-                if param_name in params:
-                    path_params[param_name] = params.pop(param_name)
-                    api_url = api_url.replace(f"{{{param_name}}}", str(path_params[param_name]))
-            query_params = params if method == "GET" else {}
-            request_body = params if method != "GET" else None
+        if isinstance(parameters, dict):
+            if method == "GET":
+                request_params = parameters
+            else:
+                request_body = parameters
         else:
-            logger.debug("No valid arguments, proceeding without query params")
+            logger.debug("No valid parameters provided, proceeding without params/body")
 
-        logger.debug(f"API Request URL: {api_url}")
-        logger.debug(f"Request Method: {method}")
-        logger.debug(f"Path Parameters: {path_params}")
-        logger.debug(f"Query Parameters: {query_params}")
-        logger.debug(f"Request Headers: {headers}")
+        logger.debug(f"API Request - URL: {api_url}, Method: {method}")
+        logger.debug(f"Headers: {headers}")
+        logger.debug(f"Query Params: {request_params}")
+        logger.debug(f"Request Body: {request_body}")
 
         try:
             response = requests.request(
                 method=method,
                 url=api_url,
-                params=query_params if query_params else None,
                 headers=headers,
-                json=request_body if request_body else None
+                params=request_params if method == "GET" else None,
+                json=request_body if method != "GET" else None
             )
             response.raise_for_status()
             response_text = response.text or "No response body"
@@ -142,7 +124,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
         return types.ServerResult(
             root=types.CallToolResult(
                 content=[types.TextContent(type="text", text=str(e))]
-            )
+                )
         )
 
 async def list_tools(request: types.ListToolsRequest) -> types.ServerResult:
