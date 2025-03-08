@@ -91,8 +91,8 @@ Refer to the **Examples** section below for practical configurations tailored to
 - `TOOL_WHITELIST`: (Optional) A comma-separated list of endpoint paths to expose as tools.
 - `TOOL_NAME_PREFIX`: (Optional) A prefix to prepend to all tool names.
 - `API_KEY`: (Optional) Authentication token for the API, sent as `Bearer <API_KEY>` in the Authorization header by default.
-- `API_KEY_JMESPATH`: (Optional) JMESPath expression to map `API_KEY` into request parameters (e.g., `query.token` for Slack).
-- `API_AUTH_TYPE`: (Optional) Overrides the default `Bearer` Authorization header type (e.g., `Api-Key` for Fly.io).
+- `API_KEY_JMESPATH`: (Optional) JMESPath expression to map `API_KEY` into request parameters (e.g., `token` for Slack).
+- `API_AUTH_TYPE`: (Optional) Overrides the default `Bearer` Authorization header type (e.g., `Api-Key` for GetZep).
 
 ## Examples
 
@@ -260,7 +260,6 @@ Update your configuration:
 - **TOOL_WHITELIST**: Limits to `/sessions` endpoints.
 - **API_KEY**: Your GetZep API key.
 - **API_AUTH_TYPE**: Uses `Api-Key` for header-based authentication (overrides default `Bearer`).
-- **SERVER_URL_OVERRIDE**: GetZep’s API base URL.
 - **TOOL_NAME_PREFIX**: Prepends `getzep_` to tools.
 
 #### 3. Resulting Tools

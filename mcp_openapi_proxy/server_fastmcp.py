@@ -16,7 +16,8 @@ import os
 import sys
 import json
 import requests
-
+from typing import Dict, Any
+from mcp import types
 from mcp.server.fastmcp import FastMCP
 from mcp_openapi_proxy.utils import setup_logging, is_tool_whitelisted, fetch_openapi_spec, get_auth_headers, build_base_url, normalize_tool_name, handle_custom_auth, get_tool_prefix
 
@@ -49,7 +50,7 @@ def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
         logger.debug("No paths found in spec.")
         return json.dumps([])
     functions = {}
-    prefix = get_tool_prefix()  # Grab the prefix here
+    prefix = get_tool_prefix()
     for path, path_item in paths.items():
         logger.debug(f"Processing path: {path}")
         if not path_item:
@@ -71,19 +72,37 @@ def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
             raw_name = f"{method.upper()} {path}"
             function_name = normalize_tool_name(raw_name)
             if prefix:
-                function_name = f"{prefix}{function_name}"  # Apply prefix here
+                function_name = f"{prefix}{function_name}"
             if function_name in functions:
                 logger.debug(f"Skipping duplicate tool name: {function_name}")
                 continue
             function_description = operation.get("summary", operation.get("description", "No description provided."))
             logger.debug(f"Registering function: {function_name} - {function_description}")
+            input_schema = {
+                "type": "object",
+                "properties": {},
+                "required": [],
+                "additionalProperties": False
+            }
+            for param in operation.get("parameters", []):
+                param_name = param.get("name")
+                param_type = param.get("type", "string")
+                if param_type not in ["string", "integer", "boolean", "number"]:
+                    param_type = "string"
+                input_schema["properties"][param_name] = {
+                    "type": param_type,
+                    "description": param.get("description", f"{param.get('in', 'unknown')} parameter {param_name}")
+                }
+                if param.get("required", False):
+                    input_schema["required"].append(param_name)
             functions[function_name] = {
                 "name": function_name,
                 "description": function_description,
                 "path": path,
                 "method": method.upper(),
                 "operationId": operation.get("operationId"),
-                "original_name": raw_name
+                "original_name": raw_name,
+                "inputSchema": input_schema
             }
     logger.info(f"Discovered {len(functions)} functions from the OpenAPI specification.")
     logger.debug(f"Functions list: {list(functions.values())}")
@@ -110,7 +129,7 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
     function_def = None
     paths = spec.get("paths", {})
     logger.debug(f"Paths for function lookup: {list(paths.keys())}")
-    prefix = get_tool_prefix()  # Ensure prefix is considered here too
+    prefix = get_tool_prefix()
     for path, path_item in paths.items():
         logger.debug(f"Checking path: {path}")
         for method, operation in path_item.items():
@@ -138,8 +157,10 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
         return json.dumps({"error": f"Function '{function_name}' not found"})
     logger.debug(f"Function def found: {function_def}")
 
-    # Apply custom auth mapping if API_KEY_JMESPATH is set
-    parameters = handle_custom_auth(function_def["operation"], parameters)
+    operation = function_def["operation"]
+    operation["method"] = function_def["method"]
+    parameters = handle_custom_auth(operation, parameters)
+    logger.debug(f"Parameters after auth handling: {parameters}")
 
     if not is_tool_whitelisted(function_def["path"]):
         logger.error(f"Access to function '{function_name}' is not allowed.")
@@ -151,26 +172,40 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
         return json.dumps({"error": "No base URL defined in spec or SERVER_URL_OVERRIDE"})
 
     path = function_def["path"]
-    path = "/" + path.lstrip("/")
-    logger.debug(f"Normalized path: {path}")
-    api_url = base_url + path
-    logger.debug(f"Final API URL: {api_url}")
-    request_params = {}
-    request_body = None
+    api_url = f"{base_url.rstrip('/')}/{path.lstrip('/')}"
     headers = {}
     if function_def["method"] != "GET":
         headers["Content-Type"] = "application/json"
     headers.update(get_auth_headers(spec))
-    if parameters is None:
-        parameters = {}
-    logger.debug(f"Parameters after auth handling: {parameters}")
-    if parameters:
+    request_params = {}
+    request_body = None
+
+    # Map all path parameters dynamically from the spec
+    if isinstance(parameters, dict):
+        path_params_in_openapi = [
+            param["name"] for param in operation.get("parameters", []) if param.get("in") == "path"
+        ]
+        if path_params_in_openapi:
+            missing_required = [
+                param["name"] for param in operation.get("parameters", [])
+                if param.get("in") == "path" and param.get("required", False) and param["name"] not in parameters
+            ]
+            if missing_required:
+                logger.error(f"Missing required path parameters: {missing_required}")
+                return json.dumps({"error": f"Missing required path parameters: {missing_required}"})
+            for param_name in path_params_in_openapi:
+                if param_name in parameters:
+                    api_url = api_url.replace(f"{{{param_name}}}", str(parameters.pop(param_name)))
+                    logger.debug(f"Replaced path param {param_name} in URL: {api_url}")
+        # Remaining parameters go to query (GET) or body (non-GET)
         if function_def["method"] == "GET":
             request_params = parameters
-            logger.debug(f"Set request_params for GET: {request_params}")
         else:
             request_body = parameters
-            logger.debug(f"Set request_body: {request_body}")
+    else:
+        parameters = {}
+        logger.debug("No valid parameters provided, proceeding without params/body")
+
     logger.debug(f"Sending request - Method: {function_def['method']}, URL: {api_url}, Headers: {headers}, Params: {request_params}, Body: {request_body}")
     try:
         response = requests.request(
@@ -178,7 +213,7 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
             url=api_url,
             headers=headers,
             params=request_params if function_def["method"] == "GET" else None,
-            json=None if function_def["method"] == "GET" else request_body
+            json=request_body if function_def["method"] != "GET" else None
         )
         response.raise_for_status()
         logger.debug(f"API response received: {response.text}")

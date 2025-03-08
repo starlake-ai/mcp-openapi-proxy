@@ -78,33 +78,28 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
         request_params = {}
         request_body = None
 
-        # Handle all path parameters, not just required ones
-        path_params_in_openapi = [
-            param['name'] for param in operation.get('parameters', []) if param.get('in') == 'path'
-        ]
-        if path_params_in_openapi:
-            if not isinstance(parameters, dict):
-                logger.error(f"Path parameters {path_params_in_openapi} missing: parameters is not a dict")
-                return types.ServerResult(
-                    root=types.CallToolResult(
-                        content=[types.TextContent(type="text", text=f"Missing path parameters: {path_params_in_openapi}")]
-                    )
-                )
-            missing_params = [p for p in path_params_in_openapi if p not in parameters]
-            if missing_params:
-                logger.error(f"Required path parameters missing: {missing_params}")
-                return types.ServerResult(
-                    root=types.CallToolResult(
-                        content=[types.TextContent(type="text", text=f"Missing required path parameters: {missing_params}")]
-                    )
-                )
-            for param_name in path_params_in_openapi:
-                if param_name in parameters:
-                    api_url = api_url.replace(f"{{{param_name}}}", str(parameters.pop(param_name)))
-                    logger.debug(f"Replaced path param {param_name} in URL: {api_url}")
-
-        # Remaining parameters go to query (GET) or body (non-GET)
+        # Map all path parameters dynamically from the spec
         if isinstance(parameters, dict):
+            path_params_in_openapi = [
+                param['name'] for param in operation.get('parameters', []) if param.get('in') == 'path'
+            ]
+            if path_params_in_openapi:
+                missing_required = [
+                    param['name'] for param in operation.get('parameters', [])
+                    if param.get('in') == 'path' and param.get('required', False) and param['name'] not in parameters
+                ]
+                if missing_required:
+                    logger.error(f"Missing required path parameters: {missing_required}")
+                    return types.ServerResult(
+                        root=types.CallToolResult(
+                            content=[types.TextContent(type="text", text=f"Missing required path parameters: {missing_required}")]
+                        )
+                    )
+                for param_name in path_params_in_openapi:
+                    if param_name in parameters:
+                        api_url = api_url.replace(f"{{{param_name}}}", str(parameters.pop(param_name)))
+                        logger.debug(f"Replaced path param {param_name} in URL: {api_url}")
+            # Remaining parameters go to query (GET) or body (non-GET)
             if method == "GET":
                 request_params = parameters
             else:
