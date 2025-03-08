@@ -21,15 +21,6 @@ load_dotenv()
 OPENAPI_SPEC_URL = os.getenv("OPENAPI_SPEC_URL")
 
 def setup_logging(debug: bool = False) -> logging.Logger:
-    """
-    Configures logging for the application, directing all output to stderr.
-
-    Args:
-        debug (bool): If True, sets log level to DEBUG; otherwise, INFO.
-
-    Returns:
-        logging.Logger: Configured logger instance.
-    """
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG if debug else logging.INFO)
     logger.propagate = False
@@ -53,21 +44,11 @@ logger.debug(f"OpenAPI Spec URL: {OPENAPI_SPEC_URL}")
 logger.debug("utils.py initialized")
 
 def redact_api_key(key: str) -> str:
-    """Redacts an API key for secure logging."""
     if not key or len(key) <= 4:
         return "<not set>"
     return f"{key[:2]}{'*' * (len(key) - 4)}{key[-2:]}"
 
 def normalize_tool_name(name: str) -> str:
-    """
-    Normalizes tool names into a clean function name without parameters.
-
-    Args:
-        name (str): Raw method and path, e.g., 'GET /sessions/{sessionId}/messages/{messageUUID}'.
-
-    Returns:
-        str: Normalized tool name without special characters.
-    """
     if not name or not isinstance(name, str):
         logger.warning(f"Invalid tool name input: {name}. Defaulting to 'unknown_tool'.")
         return "unknown_tool"
@@ -99,22 +80,12 @@ def normalize_tool_name(name: str) -> str:
     return func_name or "unknown_tool"
 
 def get_tool_prefix() -> str:
-    """Retrieves tool name prefix from environment, ensuring it ends with an underscore."""
     prefix = os.getenv("TOOL_NAME_PREFIX", "")
     if prefix and not prefix.endswith("_"):
         prefix += "_"
     return prefix
 
 def is_tool_whitelisted(endpoint: str) -> bool:
-    """
-    Checks if an endpoint matches any partial path in TOOL_WHITELIST.
-
-    Args:
-        endpoint (str): The endpoint path from the OpenAPI spec.
-
-    Returns:
-        bool: True if the endpoint matches any whitelist item, False otherwise.
-    """
     whitelist = os.getenv("TOOL_WHITELIST", "")
     logger.debug(f"Checking whitelist - endpoint: {endpoint}, TOOL_WHITELIST: {whitelist}")
     if not whitelist:
@@ -152,7 +123,6 @@ def is_tool_whitelisted(endpoint: str) -> bool:
     return False
 
 def fetch_openapi_spec(spec_url: str) -> dict:
-    """Fetches and parses OpenAPI specification from a URL or file, assuming JSON if no suffix."""
     try:
         if spec_url.startswith("file://"):
             spec_path = spec_url.replace("file://", "")
@@ -160,12 +130,13 @@ def fetch_openapi_spec(spec_url: str) -> dict:
                 content = f.read()
             logger.debug(f"Read local OpenAPI spec from {spec_path}")
         else:
-            response = requests.get(spec_url)
+            response = requests.get(spec_url, timeout=10)
+            if response.status_code in [401, 403]:
+                logger.debug(f"Spec {spec_url} requires auth (status {response.status_code})—skipping")
+                return None
             response.raise_for_status()
             content = response.text
             logger.debug(f"Fetched OpenAPI spec from {spec_url}")
-        
-        # Check suffix, default to JSON if none
         if spec_url.endswith(('.yaml', '.yml')):
             spec = yaml.safe_load(content)
             logger.debug(f"Parsed YAML OpenAPI spec from {spec_url}")
@@ -181,16 +152,6 @@ def fetch_openapi_spec(spec_url: str) -> dict:
         return None
 
 def get_auth_headers(spec: dict, api_key_env: str = "API_KEY") -> dict:
-    """
-    Constructs authorization headers based on spec and environment variables.
-
-    Args:
-        spec (dict): OpenAPI specification.
-        api_key_env (str): Environment variable name for the API key (default: "API_KEY").
-
-    Returns:
-        dict: Headers dictionary with Authorization set appropriately.
-    """
     headers = {}
     auth_token = os.getenv(api_key_env)
     if not auth_token:
@@ -223,52 +184,46 @@ def get_auth_headers(spec: dict, api_key_env: str = "API_KEY") -> dict:
     return headers
 
 def handle_custom_auth(operation: dict, parameters: dict = None) -> dict:
-    """
-    Applies custom authentication mapping using API_KEY_JMESPATH if provided, overwriting existing keys.
-
-    Args:
-        operation (dict): The OpenAPI operation object for the endpoint.
-        parameters (dict, optional): Existing parameters or arguments to modify.
-
-    Returns:
-        dict: Updated parameters with API_KEY mapped according to API_KEY_JMESPATH, excluding path params.
-    """
     if parameters is None:
         parameters = {}
-
     logger.debug(f"Raw parameters before auth handling: {parameters}")
     api_key = os.getenv("API_KEY")
     jmespath_expr = os.getenv("API_KEY_JMESPATH")
-
     if not api_key or not jmespath_expr:
         logger.debug("No API_KEY or API_KEY_JMESPATH set, skipping custom auth handling.")
         return parameters
 
     method = operation.get("method", "GET").upper()
     request_data = {"query": {}, "body": {}}
-    for param in operation.get("parameters", []):
-        param_name = param.get("name")
-        if param_name in parameters:
-            if param.get("in") == "query":
-                request_data["query"][param_name] = parameters[param_name]
-            elif param.get("in") == "header":
-                request_data["body"][param_name] = parameters[param_name]
-            # Path params skipped here - handled by dispatcher/call_function
+    # Preserve original params, split by method
+    if parameters:
+        for key, value in parameters.items():
+            param_in = next((p.get("in") for p in operation.get("parameters", []) if p.get("name") == key), None)
+            if param_in == "query" or (method == "GET" and param_in not in ["path", "header"]):
+                request_data["query"][key] = value
+            elif param_in == "header":
+                request_data["body"][key] = value
+            elif param_in != "path":  # Path params handled elsewhere
+                request_data["body"][key] = value
 
+    # Apply API_KEY via JMESPath
     try:
         if jmespath_expr:
-            if "." in jmespath_expr or "[" in jmespath_expr:
-                nested_params = jmespath.search(jmespath_expr, {"api_key": api_key})
-                if nested_params:
-                    request_data["query"] = {**request_data["query"], **nested_params}
+            parts = jmespath_expr.split(".")
+            target = request_data[parts[0]] if parts[0] in request_data else {}
+            current = target
+            for i, part in enumerate(parts[1:], 1):
+                if i == len(parts) - 1:
+                    current[part] = api_key  # Overwrite at final key
                 else:
-                    logger.warning(f"JMESPath expression {jmespath_expr} returned no value.")
-            else:
-                request_data["query"][jmespath_expr] = api_key
-        logger.debug(f"Applied API_KEY to {jmespath_expr}: {redact_api_key(api_key)}")
+                    current = current.setdefault(part, {})
+            if parts[0] in request_data:
+                request_data[parts[0]] = target
+            logger.debug(f"Applied API_KEY to {jmespath_expr}: {redact_api_key(api_key)}")
     except Exception as e:
         logger.error(f"Error applying JMESPath expression {jmespath_expr}: {e}")
 
+    # Merge back, overwriting original params
     if method == "GET":
         parameters = {**parameters, **request_data["query"]}
     else:
@@ -277,7 +232,6 @@ def handle_custom_auth(operation: dict, parameters: dict = None) -> dict:
     return parameters
 
 def map_schema_to_tools(schema: dict) -> list:
-    """Maps a schema to a list of MCP tools."""
     tools = []
     classes = schema.get("classes", [])
     for entry in classes:
@@ -294,15 +248,6 @@ def map_schema_to_tools(schema: dict) -> list:
     return tools
 
 def detect_response_type(response_text: str) -> tuple[types.TextContent, str]:
-    """
-    Detects the response type (JSON or text) and returns the appropriate MCP content object.
-
-    Args:
-        response_text (str): The raw response text from the HTTP request.
-
-    Returns:
-        Tuple: (content object, log message)
-    """
     try:
         json_data = json.loads(response_text)
         structured_text = {"text": response_text}
@@ -314,15 +259,6 @@ def detect_response_type(response_text: str) -> tuple[types.TextContent, str]:
     return content, log_message
 
 def build_base_url(spec: dict) -> str:
-    """
-    Constructs the base URL for API requests, prioritizing SERVER_URL_OVERRIDE.
-
-    Args:
-        spec (dict): OpenAPI specification containing servers or host information.
-
-    Returns:
-        str: The constructed base URL, or empty string if not determinable.
-    """
     override = os.getenv("SERVER_URL_OVERRIDE", "").strip()
     if override:
         urls = override.split()
