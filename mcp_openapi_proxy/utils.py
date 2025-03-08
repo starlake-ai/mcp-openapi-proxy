@@ -195,7 +195,6 @@ def handle_custom_auth(operation: dict, parameters: dict = None) -> dict:
 
     method = operation.get("method", "GET").upper()
     request_data = {"query": {}, "body": {}}
-    # Preserve original params, split by method
     if parameters:
         for key, value in parameters.items():
             param_in = next((p.get("in") for p in operation.get("parameters", []) if p.get("name") == key), None)
@@ -203,27 +202,32 @@ def handle_custom_auth(operation: dict, parameters: dict = None) -> dict:
                 request_data["query"][key] = value
             elif param_in == "header":
                 request_data["body"][key] = value
-            elif param_in != "path":  # Path params handled elsewhere
+            elif param_in != "path":
                 request_data["body"][key] = value
 
-    # Apply API_KEY via JMESPath
     try:
         if jmespath_expr:
             parts = jmespath_expr.split(".")
-            target = request_data[parts[0]] if parts[0] in request_data else {}
-            current = target
-            for i, part in enumerate(parts[1:], 1):
-                if i == len(parts) - 1:
-                    current[part] = api_key  # Overwrite at final key
+            if len(parts) == 1:  # Flat key like "token"
+                if method == "GET":
+                    request_data["query"][parts[0]] = api_key
                 else:
-                    current = current.setdefault(part, {})
-            if parts[0] in request_data:
-                request_data[parts[0]] = target
-            logger.debug(f"Applied API_KEY to {jmespath_expr}: {redact_api_key(api_key)}")
+                    request_data["body"][parts[0]] = api_key
+                logger.debug(f"Applied flat API_KEY to {jmespath_expr}: {redact_api_key(api_key)}")
+            else:  # Nested path like "body.auth.key"
+                target = request_data[parts[0]] if parts[0] in request_data else {}
+                current = target
+                for i, part in enumerate(parts[1:], 1):
+                    if i == len(parts) - 1:
+                        current[part] = api_key
+                    else:
+                        current = current.setdefault(part, {})
+                if parts[0] in request_data:
+                    request_data[parts[0]] = target
+                logger.debug(f"Applied nested API_KEY to {jmespath_expr}: {redact_api_key(api_key)}")
     except Exception as e:
         logger.error(f"Error applying JMESPath expression {jmespath_expr}: {e}")
 
-    # Merge back, overwriting original params
     if method == "GET":
         parameters = {**parameters, **request_data["query"]}
     else:
