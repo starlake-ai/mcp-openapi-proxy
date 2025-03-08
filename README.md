@@ -100,7 +100,8 @@ This section provides examples to demonstrate configuration simplicity, authenti
 
 ### Fly.io Example
 
-![image](https://github.com/user-attachments/assets/18899803-be36-4efc-942c-566097d69300)
+![image](https://github.com/user-attachments/assets/80abd7fa-ccca-4e35-b0dd-36ef82a236c5)
+
 
 Fly.io provides a simple API for managing machines, making it an ideal starting point. Obtain an API token from [Fly.io documentation](https://fly.io/docs/hands-on/install-flyctl/).
 
@@ -126,8 +127,7 @@ Update your MCP ecosystem configuration:
             "args": ["mcp-openapi-proxy"],
             "env": {
                 "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/abhiaagarwal/peristera/refs/heads/main/fly-machines-gen/fixed_spec.json",
-                "API_KEY": "<your_flyio_token_here>",
-                "API_AUTH_TYPE": "Api-Key"
+                "API_KEY": "<your_flyio_token_here>"
             }
         }
     }
