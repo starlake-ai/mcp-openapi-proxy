@@ -289,3 +289,43 @@ def detect_response_type(response_text: str) -> Tuple[types.TextContent, str]:
         content = types.TextContent(type="text", text=response_text)
         log_message = "Detected non-JSON response, falling back to text"
     return content, log_message
+
+def build_base_url(spec: dict) -> str:
+    """
+    Constructs the base URL for API requests, respecting SERVER_URL_OVERRIDE and handling placeholders.
+
+    Args:
+        spec (dict): OpenAPI specification containing servers or host information.
+
+    Returns:
+        str: The constructed base URL, normalized to remove trailing slashes.
+    """
+    logger = logging.getLogger(__name__)
+    base_url = os.getenv("SERVER_URL_OVERRIDE", "").strip()
+
+    if base_url:
+        logger.debug(f"Using SERVER_URL_OVERRIDE: {base_url}")
+        return base_url.rstrip('/')
+
+    # Fallback to spec-defined servers
+    if 'servers' in spec and spec['servers']:
+        default_server = spec['servers'][0].get('url', '').rstrip('/')
+        if "{tenant}" in default_server or "your-domain" in default_server:
+            logger.warning(f"Placeholder detected in spec server URL: {default_server}. SERVER_URL_OVERRIDE must be set to replace it.")
+            return ""  # Force user to set SERVER_URL_OVERRIDE
+        logger.debug(f"Using OpenAPI 3.0 servers base URL: {default_server}")
+        return default_server
+
+    # Fallback for Swagger 2.0
+    if 'host' in spec:
+        scheme = spec.get('schemes', ['https'])[0]
+        host = spec['host'].strip()
+        base_url = f"{scheme}://{host}"
+        base_path = spec.get('basePath', '').strip('/')
+        if base_path:
+            base_url += f"/{base_path}"
+        logger.debug(f"Using Swagger 2.0 host/basePath base URL: {base_url}")
+        return base_url.rstrip('/')
+
+    logger.critical("No servers or host defined in OpenAPI spec, and no SERVER_URL_OVERRIDE set.")
+    return ""

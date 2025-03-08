@@ -17,7 +17,7 @@ import json
 import requests
 
 from mcp.server.fastmcp import FastMCP
-from mcp_openapi_proxy.utils import setup_logging, is_tool_whitelisted, fetch_openapi_spec, get_auth_headers
+from mcp_openapi_proxy.utils import setup_logging, is_tool_whitelisted, fetch_openapi_spec, get_auth_headers, build_base_url
 
 logger = setup_logging(debug=os.getenv("DEBUG", "").lower() in ("true", "1", "yes"))
 
@@ -123,33 +123,13 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
     if not is_tool_whitelisted(function_def["path"]):
         logger.error(f"Access to function '{function_name}' is not allowed.")
         return json.dumps({"error": f"Access to function '{function_name}' is not allowed"})
-    SERVER_URL_OVERRIDE = os.getenv("SERVER_URL_OVERRIDE")
-    if SERVER_URL_OVERRIDE:
-        base_url = SERVER_URL_OVERRIDE.strip()
-        logger.debug(f"Using SERVER_URL_OVERRIDE: {base_url}")
-    else:
-        servers = spec.get("servers", [])
-        logger.debug(f"Servers from spec: {servers}")
-        if servers:
-            base_url = servers[0].get("url", "")
-            logger.debug(f"Using base_url from OpenAPI 3.0 servers: {base_url}")
-        else:
-            schemes = spec.get("schemes", ["https"])
-            host = spec.get("host", "example.com")
-            base_url = f"{schemes[0]}://{host}"
-            logger.debug(f"Using Swagger 2.0 fallback base_url: {base_url}")
-        if not base_url:
-            logger.warning("No valid base URL found in spec or override; using empty string.")
-            base_url = ""
-    base_url = base_url.rstrip("/")
-    logger.debug(f"Normalized base_url: {base_url}")
-    base_path = spec.get("basePath", "")
-    if base_path:
-        base_path = "/" + base_path.strip("/")
-        logger.debug(f"Normalized base_path: {base_path}")
-        if base_path not in base_url:
-            base_url = base_url + base_path
-            logger.debug(f"Added base_path to URL: {base_url}")
+    
+    # Build base URL using the utility function
+    base_url = build_base_url(spec)
+    if not base_url:
+        logger.error("Failed to construct base URL from spec or SERVER_URL_OVERRIDE.")
+        return json.dumps({"error": "No base URL defined in spec or SERVER_URL_OVERRIDE"})
+
     path = function_def["path"]
     path = "/" + path.lstrip("/")
     logger.debug(f"Normalized path: {path}")

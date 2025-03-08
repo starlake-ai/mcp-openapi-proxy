@@ -15,7 +15,7 @@ from mcp import types
 from mcp.server.lowlevel import Server
 from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
-from mcp_openapi_proxy.utils import setup_logging, normalize_tool_name, is_tool_whitelisted, fetch_openapi_spec, get_auth_headers, detect_response_type
+from mcp_openapi_proxy.utils import setup_logging, normalize_tool_name, is_tool_whitelisted, fetch_openapi_spec, get_auth_headers, detect_response_type, build_base_url
 
 DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
 logger = setup_logging(debug=DEBUG)
@@ -54,32 +54,13 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
         method = operation_details['method']
         operation = operation_details['operation']
 
-        # Build base URL from spec - Swagger 2.0 or OpenAPI 3.0
-        base_url = ""
-        if 'servers' in openapi_spec_data and openapi_spec_data['servers']:
-            base_url = openapi_spec_data['servers'][0].get('url', '').rstrip('/')
-            logger.debug(f"Using OpenAPI 3.0 servers base URL: {base_url}")
-        elif 'host' in openapi_spec_data:
-            scheme = openapi_spec_data.get('schemes', ['https'])[0]
-            host = openapi_spec_data['host'].strip()
-            base_url = f"{scheme}://{host}"
-            base_path = openapi_spec_data.get('basePath', '').strip('/')
-            if base_path:
-                base_url += f"/{base_path}"
-            logger.debug(f"Using Swagger 2.0 host/basePath base URL: {base_url}")
-        else:
-            logger.critical("No servers or host defined in OpenAPI spec - cannot construct base URL.")
-            return types.ServerResult(
-                root=types.CallToolResult(
-                    content=[types.TextContent(type="text", text="No base URL defined in spec")]
-                )
-            )
-
+        # Build base URL using the utility function
+        base_url = build_base_url(openapi_spec_data)
         if not base_url:
-            logger.critical("Base URL is empty after spec parsing - check spec configuration.")
+            logger.critical("Failed to construct base URL from spec or SERVER_URL_OVERRIDE.")
             return types.ServerResult(
                 root=types.CallToolResult(
-                    content=[types.TextContent(type="text", text="Empty base URL from spec")]
+                    content=[types.TextContent(type="text", text="No base URL defined in spec or SERVER_URL_OVERRIDE")]
                 )
             )
 
@@ -145,7 +126,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                     content=[types.TextContent(type="text", text=str(e))]
                 )
             )
-        
+
         # Log the final response sent to the client
         logger.debug(f"Response content type: {content.type}")
         logger.debug(f"Response sent to client: {content.text}")
