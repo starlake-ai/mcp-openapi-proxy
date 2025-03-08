@@ -13,8 +13,9 @@
   - [Low-Level Mode (Default)](#low-level-mode-default)
 - [Environment Variables](#environment-variables)
 - [Examples](#examples)
-  - [GetZep Example](#getzep-example)
   - [Fly.io Example](#flyio-example)
+  - [Slack Example](#slack-example)
+  - [GetZep Example](#getzep-example)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
 
@@ -23,7 +24,7 @@
 The package offers two operational modes:
 
 - **Low-Level Mode (Default):** Dynamically registers tools corresponding to all API endpoints specified in an OpenAPI document (e.g., `/chat/completions` becomes `chat_completions()`).
-- **FastMCP Mode (Simple Mode):** Provides a streamlined approach, exposing a predefined set of tools (e.g., `list_functions()` and `call_functions()`) based on static configurations.
+- **FastMCP Mode (Simple Mode):** Provides a streamlined approach, exposing a predefined set of tools (e.g., `list_functions()` and `call_function()`) based on static configurations.
 
 ## Features
 
@@ -31,6 +32,8 @@ The package offers two operational modes:
 - **Simple Mode Option:** Offers a static configuration alternative via FastMCP mode.
 - **OpenAPI Specification Support:** Compatible with OpenAPI v3, with potential support for v2.
 - **Flexible Filtering:** Allows endpoint filtering through whitelisting by paths or other criteria.
+- **Payload Authentication:** Supports custom authentication via JMESPath expressions (e.g., for APIs like Slack that expect tokens in the payload, not the HTTP header).
+- **Header Authentication:** Uses `Bearer` by default for `API_KEY` in the Authorization header, customizable for APIs like Fly.io requiring `Api-Key`.
 - **MCP Integration:** Seamlessly integrates with MCP ecosystems for invoking REST APIs as tools.
 
 ## Installation
@@ -55,7 +58,9 @@ To incorporate **mcp-openapi-proxy** into your MCP ecosystem, configure it withi
                 "OPENAPI_SPEC_URL": "${OPENAPI_SPEC_URL}",
                 "API_KEY": "",
                 "TOOL_WHITELIST": "",
-                "TOOL_NAME_PREFIX": ""
+                "TOOL_NAME_PREFIX": "",
+                "API_KEY_JMESPATH": "",
+                "API_AUTH_TYPE": ""
             }
         }
     }
@@ -80,252 +85,24 @@ Refer to the **Examples** section below for practical configurations tailored to
 
 ## Environment Variables
 
-- `OPENAPI_SPEC_URL`: (Required) The URL to the OpenAPI specification JSON file.
+- `OPENAPI_SPEC_URL`: (Required) The URL to the OpenAPI specification JSON file (e.g., `https://example.com/spec.json` or `file:///path/to/local/spec.json`).
 - `OPENAPI_LOGFILE_PATH`: (Optional) Specifies the log file path.
 - `OPENAPI_SIMPLE_MODE`: (Optional) Set to `true` to enable FastMCP mode.
 - `TOOL_WHITELIST`: (Optional) A comma-separated list of endpoint paths to expose as tools.
 - `TOOL_NAME_PREFIX`: (Optional) A prefix to prepend to all tool names.
+- `API_KEY`: (Optional) Authentication token for the API, sent as `Bearer <API_KEY>` in the Authorization header by default.
+- `API_KEY_JMESPATH`: (Optional) JMESPath expression to map `API_KEY` into request parameters (e.g., `query.token` for Slack).
+- `API_AUTH_TYPE`: (Optional) Overrides the default `Bearer` Authorization header type (e.g., `Api-Key` for Fly.io).
 
 ## Examples
 
-This section will expand incrementally with new examples added periodically. Each example demonstrates how to configure **mcp-openapi-proxy** for a specific API, starting with GetZep, which leverages a free cloud API accessible with a GetZep API key, and including a simpler Fly.io setup.
-
-### GetZep Example
-
-![image](https://github.com/user-attachments/assets/6ae7f708-9494-41a1-9075-e685f2cd8873)
-
-GetZep provides a free cloud API for memory management, making it an excellent starting point for testing. Obtain an API key from [GetZep's documentation](https://docs.getzep.com/).
-
-#### 1. Verify the OpenAPI Specification
-
-Retrieve the GetZep OpenAPI specification:
-
-```bash
-curl https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/getzep.swagger.json
-```
-
-Ensure the response is a valid OpenAPI JSON document.
-
-#### 2. Configure mcp-openapi-proxy for GetZep
-
-Update your MCP ecosystem configuration as follows:
-
-```json
-{
-    "mcpServers": {
-        "getzep": {
-            "command": "uvx",
-            "args": ["mcp-openapi-proxy"],
-            "env": {
-                "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/getzep.swagger.json",
-                "TOOL_WHITELIST": "/sessions",
-                "API_KEY": "<your_getzep_api_key>",
-                "API_AUTH_TYPE": "Api-Key",
-                "SERVER_URL_OVERRIDE": "https://api.getzep.com",
-                "TOOL_NAME_PREFIX": "getzep"
-            }
-        }
-    }
-}
-```
-
-- **OPENAPI_SPEC_URL**: Points to the GetZep Swagger specification.
-- **TOOL_WHITELIST**: Limits tools to specific endpoints (e.g., `/sessions`, `/sessions/{sessionId}/memory`).
-- **API_KEY**: Your GetZep API key (replace `<your_getzep_api_key>`).
-- **API_AUTH_TYPE**: Specifies `Api-Key` for GetZep’s authentication.
-- **SERVER_URL_OVERRIDE**: Sets the base URL to GetZep’s API.
-- **TOOL_NAME_PREFIX**: Prepends `getzep` to tool names (e.g., `getzep_sessions`).
-
-#### 3. Resulting Tools
-
-This configuration generates tools such as:
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 2,
-  "result": {
-    "tools": [
-      {
-        "name": "post_sessions",
-        "description": "Add Session",
-        "inputSchema": {
-          "type": "object",
-          "properties": {},
-          "required": [],
-          "additionalProperties": false
-        }
-      },
-      {
-        "name": "get_sessions",
-        "description": "Get Session",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "sessionId": {
-              "type": "string",
-              "description": "Unique identifier of the session"
-            }
-          },
-          "required": ["sessionId"],
-          "additionalProperties": false
-        }
-      },
-      {
-        "name": "get_sessions-ordered",
-        "description": "Get Sessions",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "page_number": {
-              "type": "integer",
-              "description": "Page number for pagination, starting from 1"
-            },
-            "page_size": {
-              "type": "integer",
-              "description": "Number of sessions per page"
-            },
-            "order_by": {
-              "type": "string",
-              "description": "Field to order results by: created_at, updated_at, user_id, session_id"
-            },
-            "asc": {
-              "type": "boolean",
-              "description": "Order direction: true for ascending, false for descending"
-            }
-          },
-          "required": [],
-          "additionalProperties": false
-        }
-      },
-      {
-        "name": "get_sessions_memory",
-        "description": "Get Session Memory",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "sessionId": {
-              "type": "string",
-              "description": "ID of the session to retrieve memory for"
-            },
-            "lastn": {
-              "type": "integer",
-              "description": "Number of most recent memory entries to retrieve"
-            },
-            "minRating": {
-              "type": "number",
-              "description": "Minimum rating to filter relevant facts"
-            }
-          },
-          "required": ["sessionId"],
-          "additionalProperties": false
-        }
-      },
-      {
-        "name": "post_sessions_memory",
-        "description": "Add Memory to Session",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "sessionId": {
-              "type": "string",
-              "description": "ID of the session to add memory to"
-            }
-          },
-          "required": ["sessionId"],
-          "additionalProperties": false
-        }
-      },
-      {
-        "name": "delete_sessions_memory",
-        "description": "Delete Session",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "sessionId": {
-              "type": "string",
-              "description": "ID of the session to delete"
-            }
-          },
-          "required": ["sessionId"],
-          "additionalProperties": false
-        }
-      },
-      {
-        "name": "get_sessions_messages",
-        "description": "Get Messages for Session",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "sessionId": {
-              "type": "string",
-              "description": "Session ID"
-            },
-            "limit": {
-              "type": "integer",
-              "description": "Limit the number of results returned"
-            },
-            "cursor": {
-              "type": "integer",
-              "description": "Cursor for pagination"
-            }
-          },
-          "required": ["sessionId"],
-          "additionalProperties": false
-        }
-      },
-      {
-        "name": "post_sessions_messages_classify",
-        "description": "Classify Session",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "sessionId": {
-              "type": "string",
-              "description": "Session ID"
-            }
-          },
-          "required": ["sessionId"],
-          "additionalProperties": false
-        }
-      },
-      {
-        "name": "get_sessions_messages",
-        "description": "Get Message",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "sessionId": {
-              "type": "string",
-              "description": "Soon to be deprecated, not needed"
-            },
-            "messageUUID": {
-              "type": "string",
-              "description": "UUID of the message"
-            }
-          },
-          "required": ["sessionId", "messageUUID"],
-          "additionalProperties": false
-        }
-      }
-    ]
-  }
-}
-```
-
-#### 4. Testing
-
-Run the server with `uvx` to verify:
-
-```bash
-OPENAPI_SPEC_URL="https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/getzep.swagger.json" API_KEY="<your_getzep_api_key>" uvx mcp-openapi-proxy
-```
+This section provides examples to demonstrate configuration simplicity, authentication flexibility, and detailed tool generation.
 
 ### Fly.io Example
 
 ![image](https://github.com/user-attachments/assets/18899803-be36-4efc-942c-566097d69300)
 
-Fly.io provides a simple API for managing machines, ideal for testing with a minimal setup. Obtain an API token from [Fly.io documentation](https://fly.io/docs/hands-on/install-flyctl/).
+Fly.io provides a simple API for managing machines, making it an ideal starting point. Obtain an API token from [Fly.io documentation](https://fly.io/docs/hands-on/install-flyctl/).
 
 #### 1. Verify the OpenAPI Specification
 
@@ -339,7 +116,7 @@ Ensure the response is a valid OpenAPI JSON document.
 
 #### 2. Configure mcp-openapi-proxy for Fly.io
 
-Update your MCP ecosystem configuration as follows:
+Update your MCP ecosystem configuration:
 
 ```json
 {
@@ -349,7 +126,8 @@ Update your MCP ecosystem configuration as follows:
             "args": ["mcp-openapi-proxy"],
             "env": {
                 "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/abhiaagarwal/peristera/refs/heads/main/fly-machines-gen/fixed_spec.json",
-                "API_KEY": "<your_flyio_token_here>"
+                "API_KEY": "<your_flyio_token_here>",
+                "API_AUTH_TYPE": "Api-Key"
             }
         }
     }
@@ -357,36 +135,186 @@ Update your MCP ecosystem configuration as follows:
 ```
 
 - **OPENAPI_SPEC_URL**: Points to the Fly.io OpenAPI specification.
-- **SERVER_URL_OVERRIDE**: Specifies the Fly.io API endpoints (public and internal).
-- **API_KEY**: Your Fly.io API token (replace `<your_flyio_token_here>`). Alternatively, you can find the API key in `~/.fly/config.yml` under the `access_token` field—simply copy that value as the `API_KEY` for a seamless setup.
-- **Note**: The `access_token` in `~/.fly/config.yml` is pre-configured when you set up Fly.io, making it a quick and easy option.
+- **API_KEY**: Your Fly.io API token (replace `<your_flyio_token_here>`). Find it in `~/.fly/config.yml` under `access_token`.
+- **API_AUTH_TYPE**: Set to `Api-Key` for Fly.io’s header-based authentication (overrides default `Bearer`).
 
 #### 3. Resulting Tools
 
-This configuration generates tools based on the Fly.io spec (e.g., machine management endpoints). Example tools might include:
+This generates tools like:
+- `get_machines` (lists machines).
+- `post_machines` (creates machines).
 
-- `get_machines` (for listing machines).
-- `post_machines` (for creating machines).
-
-Run `list_tools` to see the exact set.
+Run `list_functions` in FastMCP mode to see the full set.
 
 #### 4. Testing
 
-Run the server with `uvx` to verify:
+Verify with:
 
 ```bash
-OPENAPI_SPEC_URL="https://raw.githubusercontent.com/abhiaagarwal/peristera/refs/heads/main/fly-machines-gen/fixed_spec.json" API_KEY="<your_flyio_token_here>" uvx mcp-openapi-proxy
+OPENAPI_SPEC_URL="https://raw.githubusercontent.com/abhiaagarwal/peristera/refs/heads/main/fly-machines-gen/fixed_spec.json" API_KEY="<your_flyio_token_here>" API_AUTH_TYPE="Api-Key" uvx mcp-openapi-proxy
 ```
 
-Additional examples (e.g., OpenWebUI) will be added incrementally to this section over time.
+### Slack Example
+
+![image](https://github.com/user-attachments/assets/6ae7f708-9494-41a1-9075-e685f2cd8873)
+
+Slack’s API showcases payload-based authentication with JMESPath. Obtain a bot token from [Slack API documentation](https://api.slack.com/authentication/token-types#bot).
+
+#### 1. Verify the OpenAPI Specification
+
+Retrieve the Slack OpenAPI specification:
+
+```bash
+curl https://raw.githubusercontent.com/slackapi/slack-api-specs/master/web-api/slack_web_openapi_v2.json
+```
+
+Ensure it’s a valid OpenAPI JSON document.
+
+#### 2. Configure mcp-openapi-proxy for Slack
+
+Update your configuration:
+
+```json
+{
+    "mcpServers": {
+        "slack": {
+            "command": "uvx",
+            "args": ["mcp-openapi-proxy"],
+            "env": {
+                "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/slackapi/slack-api-specs/master/web-api/slack_web_openapi_v2.json",
+                "SERVER_URL_OVERRIDE": "https://slack.com/api",
+                "TOOL_WHITELIST": "/chat,/bots,/conversations,/reminders,/files",
+                "API_KEY": "<your_slack_bot_token>",
+                "API_KEY_JMESPATH": "query.token",
+                "TOOL_NAME_PREFIX": "slack_"
+            }
+        }
+    }
+}
+```
+
+- **OPENAPI_SPEC_URL**: Slack’s OpenAPI spec.
+- **SERVER_URL_OVERRIDE**: Slack’s API base URL.
+- **TOOL_WHITELIST**: Limits tools to specific endpoint groups.
+- **API_KEY**: Your Slack bot token (e.g., `xoxb-...`).
+- **API_KEY_JMESPATH**: Maps `API_KEY` to `query.token`, overwriting any existing `token` in the payload.
+- **TOOL_NAME_PREFIX**: Adds `slack_` to tool names (e.g., `slack_post_chat_postmessage`).
+
+#### 3. Resulting Tools
+
+Example tools in FastMCP mode:
+- `slack_post_chat_postmessage`: Posts a message to a channel.
+- `slack_get_users_info`: Retrieves user information.
+
+#### 4. Testing
+
+Test with:
+
+```bash
+OPENAPI_SPEC_URL="https://raw.githubusercontent.com/slackapi/slack-api-specs/master/web-api/slack_web_openapi_v2.json" API_KEY="<your_slack_bot_token>" API_KEY_JMESPATH="query.token" uvx mcp-openapi-proxy
+```
+
+Call `slack_post_chat_postmessage` with `{"channel": "C12345678", "text": "Hello from MCP!"}` to post to a channel your bot is in.
+
+### GetZep Example
+
+![image](https://github.com/user-attachments/assets/6ae7f708-9494-41a1-9075-e685f2cd8873)
+
+GetZep offers a free cloud API for memory management with detailed endpoints. Notably, GetZep did not originally provide an OpenAPI specification. Thanks to the efforts of Matthew Hand, an OpenAPI spec was generated by converting their documentation using a chatbot and is hosted on GitHub for convenience. Users can also generate their own specs for any REST API and use a local file path (e.g., `file:///path/to/spec.json`). Obtain an API key from [GetZep's documentation](https://docs.getzep.com/).
+
+#### 1. Verify the OpenAPI Specification
+
+Retrieve the community-generated GetZep OpenAPI specification:
+
+```bash
+curl https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/getzep.swagger.json
+```
+
+Ensure it’s a valid OpenAPI JSON document. Alternatively, generate your own spec and use `file://` to point to a local file.
+
+#### 2. Configure mcp-openapi-proxy for GetZep
+
+Update your configuration:
+
+```json
+{
+    "mcpServers": {
+        "getzep": {
+            "command": "uvx",
+            "args": ["mcp-openapi-proxy"],
+            "env": {
+                "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/getzep.swagger.json",
+                "TOOL_WHITELIST": "/sessions",
+                "API_KEY": "<your_getzep_api_key>",
+                "API_AUTH_TYPE": "Api-Key",
+                "SERVER_URL_OVERRIDE": "https://api.getzep.com",
+                "TOOL_NAME_PREFIX": "getzep_"
+            }
+        }
+    }
+}
+```
+
+- **OPENAPI_SPEC_URL**: Points to Matthew Hand’s community-generated GetZep Swagger spec (or use `file:///path/to/your/spec.json` for a local file).
+- **TOOL_WHITELIST**: Limits to `/sessions` endpoints.
+- **API_KEY**: Your GetZep API key.
+- **API_AUTH_TYPE**: Uses `Api-Key` for header-based authentication (overrides default `Bearer`).
+- **SERVER_URL_OVERRIDE**: GetZep’s API base URL.
+- **TOOL_NAME_PREFIX**: Prepends `getzep_` to tools.
+
+#### 3. Resulting Tools
+
+Example tools:
+- `getzep_post_sessions`: Adds a session.
+- `getzep_get_sessions_memory`: Retrieves session memory.
+
+Full list (abbreviated):
+```json
+{
+  "tools": [
+    {
+      "name": "getzep_post_sessions",
+      "description": "Add Session",
+      "inputSchema": {"type": "object", "properties": {}, "required": []}
+    },
+    {
+      "name": "getzep_get_sessions_memory",
+      "description": "Get Session Memory",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sessionId": {"type": "string", "description": "ID of the session"},
+          "lastn": {"type": "integer", "description": "Number of recent entries"}
+        },
+        "required": ["sessionId"]
+      }
+    }
+  ]
+}
+```
+
+#### 4. Testing
+
+Verify with the hosted spec:
+
+```bash
+OPENAPI_SPEC_URL="https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/getzep.swagger.json" API_KEY="<your_getzep_api_key>" API_AUTH_TYPE="Api-Key" uvx mcp-openapi-proxy
+```
+
+Or with a local spec:
+
+```bash
+OPENAPI_SPEC_URL="file:///path/to/your/getzep.swagger.json" API_KEY="<your_getzep_api_key>" API_AUTH_TYPE="Api-Key" uvx mcp-openapi-proxy
+```
 
 ## Troubleshooting
 
-- **Missing OPENAPI_SPEC_URL:** Ensure the environment variable is set to a valid OpenAPI JSON URL.
-- **Invalid Specification:** Confirm the OpenAPI document adheres to the standard.
-- **Tool Filtering Issues:** Verify `TOOL_WHITELIST` correctly specifies desired endpoints.
-- **Logging:** Check logs at `OPENAPI_LOGFILE_PATH` (if set) for diagnostic details.
-- **Installation Verification:** Test the server directly:
+- **Missing OPENAPI_SPEC_URL:** Ensure it’s set to a valid OpenAPI JSON URL or local file path.
+- **Invalid Specification:** Verify the OpenAPI document is standard-compliant.
+- **Tool Filtering Issues:** Check `TOOL_WHITELIST` matches desired endpoints.
+- **Authentication Errors:** Confirm `API_KEY`, `API_KEY_JMESPATH`, and `API_AUTH_TYPE` are correct.
+- **Logging:** Set `DEBUG=true` for detailed output to stderr.
+- **Test Server:** Run directly:
 
 ```bash
 uvx mcp-openapi-proxy
