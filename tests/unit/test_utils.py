@@ -81,3 +81,13 @@ def test_handle_custom_auth_none_params():
     os.environ["API_KEY_JMESPATH"] = "query.token"
     result = handle_custom_auth(operation, None)
     assert result == {"token": "test-key"}
+
+
+def test_handle_custom_auth_overwrite():
+    """Test handle_custom_auth overwriting existing token with API_KEY."""
+    operation = {"method": "GET"}
+    params = {"token": "old-token", "exclude_archived": "true"}
+    os.environ["API_KEY"] = "new-test-key"
+    os.environ["API_KEY_JMESPATH"] = "query.token"
+    result = handle_custom_auth(operation, params)
+    assert result == {"token": "new-test-key", "exclude_archived": "true"}
