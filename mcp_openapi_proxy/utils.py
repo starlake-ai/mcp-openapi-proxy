@@ -292,7 +292,7 @@ def detect_response_type(response_text: str) -> Tuple[types.TextContent, str]:
 
 def build_base_url(spec: dict) -> str:
     """
-    Constructs the base URL for API requests, respecting SERVER_URL_OVERRIDE and replacing placeholders.
+    Constructs the base URL for API requests, prioritizing SERVER_URL_OVERRIDE.
 
     Args:
         spec (dict): OpenAPI specification containing servers or host information.
@@ -301,11 +301,12 @@ def build_base_url(spec: dict) -> str:
         str: The constructed base URL, normalized to remove trailing slashes.
     """
     logger = logging.getLogger(__name__)
-    base_url = os.getenv("SERVER_URL_OVERRIDE", "").strip()
+    override = os.getenv("SERVER_URL_OVERRIDE", "").strip()
 
-    if base_url:
-        logger.debug(f"Using SERVER_URL_OVERRIDE: {base_url}")
-        return base_url.rstrip('/')
+    # If SERVER_URL_OVERRIDE is set, use it and ignore the spec
+    if override:
+        logger.debug(f"SERVER_URL_OVERRIDE set, using: {override}")
+        return override.rstrip('/')
 
     # Fallback to spec-defined servers
     if 'servers' in spec and spec['servers']:

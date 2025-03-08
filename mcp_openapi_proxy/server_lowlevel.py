@@ -109,7 +109,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                 url=api_url,
                 params=query_params if query_params else None,
                 headers=headers,
-                json=request_body if request_body else None
+                json=None if method == "GET" else request_body  # No body for GET
             )
             response.raise_for_status()
             response_text = response.text or "No response body"

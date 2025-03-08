@@ -159,7 +159,7 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
             url=api_url,
             headers=headers,
             params=request_params if function_def["method"] == "GET" else None,
-            json=request_body if function_def["method"] != "GET" and request_body else None
+            json=None if function_def["method"] == "GET" else request_body  # No body for GET
         )
         response.raise_for_status()
         logger.debug(f"API response received: {response.text}")
