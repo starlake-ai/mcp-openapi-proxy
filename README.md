@@ -323,6 +323,8 @@ OPENAPI_SPEC_URL="https://raw.githubusercontent.com/matthewhand/mcp-openapi-prox
 
 ### Fly.io Example
 
+![image](https://github.com/user-attachments/assets/18899803-be36-4efc-942c-566097d69300)
+
 Fly.io provides a simple API for managing machines, ideal for testing with a minimal setup. Obtain an API token from [Fly.io documentation](https://fly.io/docs/hands-on/install-flyctl/).
 
 #### 1. Verify the OpenAPI Specification
