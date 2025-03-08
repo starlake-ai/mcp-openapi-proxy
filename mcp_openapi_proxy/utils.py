@@ -62,29 +62,39 @@ def redact_api_key(key: str) -> str:
 
 def normalize_tool_name(name: str) -> str:
     """
-    Normalizes tool names into a clean function name without parameters.
-    For example, 'GET /sessions/{sessionId}/messages/{messageUUID}' becomes
-    'get_sessions_messages'.
+    Normalizes tool names into a clean function name without parameters, 
+    ensuring compliance with^[a-zA-Z0-9_-]+$.
+
+    For example:
+    - 'GET /sessions/{sessionId}/messages/{messageUUID}' becomes 'get_sessions_messages'
+    - 'POST /users.create' becomes 'post_users_create'
 
     Args:
         name (str): Raw method and path, e.g., 'GET /sessions/{sessionId}/messages/{messageUUID}'.
 
     Returns:
-        str: Normalized tool name without parameters.
+        str: Normalized tool name without special characters.
     """
     logger = logging.getLogger(__name__)
     if not name or not isinstance(name, str):
         logger.warning(f"Invalid tool name input: {name}. Defaulting to 'unknown_tool'.")
         return "unknown_tool"
 
+    # Split into method and path, handle cases with or without space
     parts = name.strip().split(" ", 1)
     if len(parts) != 2:
-        logger.warning(f"Malformed tool name '{name}', expected 'METHOD /path'. Defaulting to 'unknown_tool'.")
-        return "unknown_tool"
+        # Check if it’s a dot-separated name (e.g., for lowlevel mode edge cases)
+        if "." in name:
+            parts = name.split(".", 1)
+            method, path = parts[0].lower(), parts[1].replace(".", "_")
+        else:
+            logger.warning(f"Malformed tool name '{name}', expected 'METHOD /path'. Defaulting to 'unknown_tool'.")
+            return "unknown_tool"
+    else:
+        method, path = parts
+        method = method.lower()
 
-    method, path = parts
-    method = method.lower()
-
+    # Handle path: remove slashes, replace special chars, skip params
     path_parts = [p for p in path.split("/") if p and p not in ("api", "v2")]
     if not path_parts:
         logger.warning(f"No valid path segments in '{path}'. Using '{method}_unknown'.")
@@ -94,10 +104,10 @@ def normalize_tool_name(name: str) -> str:
     for part in path_parts:
         if "{" in part and "}" in part:
             continue  # Skip params, they'll go in inputSchema
-        else:
-            func_name += f"_{part}"
+        func_name += f"_{part.replace('.', '_')}"  # Replace dots with underscores
 
-    func_name = re.sub(r"[^a-zA-Z0-9_.-]", "_", func_name)
+    # Clean up to match ^[a-zA-Z0-9_-]+$
+    func_name = re.sub(r"[^a-zA-Z0-9_-]", "_", func_name)
     func_name = re.sub(r"_+", "_", func_name).strip("_")
     if len(func_name) > 64:
         func_name = func_name[:64]
@@ -298,7 +308,7 @@ def build_base_url(spec: dict) -> str:
         spec (dict): OpenAPI specification containing servers or host information.
 
     Returns:
-        str: The constructed base URL, normalized to remove trailing slashes.
+        str: The constructed base URL, normalized to remove trailing slashes, or the spec URL if placeholders are present.
     """
     logger = logging.getLogger(__name__)
     override = os.getenv("SERVER_URL_OVERRIDE", "").strip()
@@ -312,8 +322,8 @@ def build_base_url(spec: dict) -> str:
     if 'servers' in spec and spec['servers']:
         default_server = spec['servers'][0].get('url', '').rstrip('/')
         if "{tenant}" in default_server or "your-domain" in default_server:
-            logger.error(f"Placeholder detected in spec server URL: {default_server}. SERVER_URL_OVERRIDE must be set to a valid domain.")
-            return ""  # Force user to set SERVER_URL_OVERRIDE
+            logger.warning(f"Placeholder detected in spec server URL: {default_server}. Consider setting SERVER_URL_OVERRIDE to a valid domain.")
+            return default_server  # Proceed with placeholder URL instead of failing
         logger.debug(f"Using OpenAPI 3.0 servers base URL: {default_server}")
         return default_server
 

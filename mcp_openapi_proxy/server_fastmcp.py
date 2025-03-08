@@ -6,9 +6,9 @@ Configuration is controlled via environment variables:
 
 - OPENAPI_SPEC_URL_<hash>: Unique URL per test, falls back to OPENAPI_SPEC_URL.
 - TOOL_WHITELIST: Comma-separated list of allowed endpoint paths.
-- SERVER_URL_OVERRIDE: (Optional) Overrides the base URL from the OpenAPI spec.
-- API_KEY: (Optional) Token for endpoints requiring authentication.
-- API_AUTH_TYPE: (Optional) 'Bearer', 'Api-Key', etc.
+- SERVER_URL_OVERRIDE: Optional override for the base URL from the OpenAPI spec.
+- API_KEY: Optional token for endpoints requiring authentication.
+- API_AUTH_TYPE: Optional type like 'Bearer' or 'Api-Key'.
 """
 
 import os
@@ -17,7 +17,7 @@ import json
 import requests
 
 from mcp.server.fastmcp import FastMCP
-from mcp_openapi_proxy.utils import setup_logging, is_tool_whitelisted, fetch_openapi_spec, get_auth_headers, build_base_url
+from mcp_openapi_proxy.utils import setup_logging, is_tool_whitelisted, fetch_openapi_spec, get_auth_headers, build_base_url, normalize_tool_name
 
 logger = setup_logging(debug=os.getenv("DEBUG", "").lower() in ("true", "1", "yes"))
 
@@ -65,7 +65,8 @@ def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
             if method.lower() not in ["get", "post", "put", "delete", "patch"]:
                 logger.debug(f"Method {method} not supported for {path} - skipping.")
                 continue
-            function_name = f"{method.upper()} {path}"
+            raw_name = f"{method.upper()} {path}"
+            function_name = normalize_tool_name(raw_name)
             function_description = operation.get("summary", operation.get("description", "No description provided."))
             logger.debug(f"Registering function: {function_name} - {function_description}")
             functions.append({
@@ -73,7 +74,8 @@ def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
                 "description": function_description,
                 "path": path,
                 "method": method.upper(),
-                "operationId": operation.get("operationId")
+                "operationId": operation.get("operationId"),
+                "original_name": raw_name
             })
     logger.info(f"Discovered {len(functions)} functions from the OpenAPI specification.")
     logger.debug(f"Functions list: {functions}")
@@ -100,11 +102,12 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
     for path, path_item in paths.items():
         logger.debug(f"Checking path: {path}")
         for method, operation in path_item.items():
-            logger.debug(f"Checking method: {method} for {path}")
+            logger.debug(f"Checking method: {method} for path: {path}")
             if method.lower() not in ["get", "post", "put", "delete", "patch"]:
                 logger.debug(f"Skipping unsupported method: {method}")
                 continue
-            current_function_name = f"{method.upper()} {path}"
+            raw_name = f"{method.upper()} {path}"
+            current_function_name = normalize_tool_name(raw_name)
             logger.debug(f"Comparing {current_function_name} with {function_name}")
             if current_function_name == function_name:
                 function_def = {
@@ -123,7 +126,7 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
     if not is_tool_whitelisted(function_def["path"]):
         logger.error(f"Access to function '{function_name}' is not allowed.")
         return json.dumps({"error": f"Access to function '{function_name}' is not allowed"})
-    
+
     # Build base URL using the utility function
     base_url = build_base_url(spec)
     if not base_url:
@@ -140,7 +143,7 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
     headers = {}
     if function_def["method"] != "GET":
         headers["Content-Type"] = "application/json"
-    headers.update(get_auth_headers(spec))  # Use centralized auth logic
+    headers.update(get_auth_headers(spec))
     if parameters is None:
         logger.debug("Parameters is None, using empty dict")
         parameters = {}
@@ -159,7 +162,7 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
             url=api_url,
             headers=headers,
             params=request_params if function_def["method"] == "GET" else None,
-            json=None if function_def["method"] == "GET" else request_body  # No body for GET
+            json=None if function_def["method"] == "GET" else request_body
         )
         response.raise_for_status()
         logger.debug(f"API response received: {response.text}")

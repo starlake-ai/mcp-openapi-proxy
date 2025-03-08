@@ -75,7 +75,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
 
         # Extract path and query parameters from arguments
         if isinstance(arguments, dict):
-            params = arguments  # Use arguments directly if no 'parameters' key
+            params = arguments
             if 'parameters' in arguments:
                 params = arguments['parameters']
             if not isinstance(params, dict):
@@ -93,7 +93,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                 if param_name in params:
                     path_params[param_name] = params.pop(param_name)
                     api_url = api_url.replace(f"{{{param_name}}}", str(path_params[param_name]))
-            query_params = params  # Remaining params are query params
+            query_params = params
         else:
             logger.debug("No valid arguments, proceeding without query params")
 
@@ -109,7 +109,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                 url=api_url,
                 params=query_params if query_params else None,
                 headers=headers,
-                json=None if method == "GET" else request_body  # No body for GET
+                json=None if method == "GET" else request_body
             )
             response.raise_for_status()
             response_text = response.text or "No response body"
@@ -118,7 +118,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
             content, log_message = detect_response_type(response_text)
             logger.debug(log_message)
 
-            # Prepare content for MCP (always TextContent now)
+            # Prepare content for MCP
             final_content = [content]
 
         except requests.exceptions.RequestException as e:
@@ -129,7 +129,6 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                 )
             )
 
-        # Log the final response sent to the client
         logger.debug(f"Response content type: {content.type}")
         logger.debug(f"Response sent to client: {content.text}")
 
@@ -185,7 +184,8 @@ def register_functions(spec: Dict) -> List[types.Tool]:
                 logger.debug(f"Skipping unsupported method {method} for {path}")
                 continue
             try:
-                function_name = normalize_tool_name(f"{method.upper()} {path}")
+                raw_name = f"{method.upper()} {path}"
+                function_name = normalize_tool_name(raw_name)
                 description = operation.get('summary', operation.get('description', 'No description available'))
 
                 # Build inputSchema from operation parameters
@@ -199,8 +199,8 @@ def register_functions(spec: Dict) -> List[types.Tool]:
                 for param in parameters:
                     param_name = param.get('name')
                     param_in = param.get('in')
-                    if param_in in ['path', 'query']:  # Handle path and query params
-                        param_type = param.get('schema', {}).get('type', 'string')  # Default to string if not specified
+                    if param_in in ['path', 'query']:
+                        param_type = param.get('schema', {}).get('type', 'string')
                         schema_type = param_type if param_type in ['string', 'integer', 'boolean', 'number'] else 'string'
                         input_schema['properties'][param_name] = {
                             "type": schema_type,
@@ -215,7 +215,7 @@ def register_functions(spec: Dict) -> List[types.Tool]:
                     inputSchema=input_schema,
                 )
                 tools.append(tool)
-                logger.debug(f"Registered function: {function_name} ({method.upper()} {path}) with inputSchema: {json.dumps(inputSchema)}")
+                logger.debug(f"Registered function: {function_name} ({method.upper()} {path}) with inputSchema: {json.dumps(input_schema)}")
             except Exception as e:
                 logger.error(f"Error registering function for {method.upper()} {path}: {e}", exc_info=True)
 
@@ -230,7 +230,8 @@ def lookup_operation_details(function_name: str, spec: Dict) -> Dict or None:
         for method, operation in path_item.items():
             if method.lower() not in ['get', 'post', 'put', 'delete', 'patch']:
                 continue
-            current_function_name = normalize_tool_name(f"{method.upper()} {path}")
+            raw_name = f"{method.upper()} {path}"
+            current_function_name = normalize_tool_name(raw_name)
             if current_function_name == function_name:
                 return {"path": path, "method": method.upper(), "operation": operation}
     return None
