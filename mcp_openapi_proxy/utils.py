@@ -234,6 +234,7 @@ def handle_custom_auth(operation: dict, parameters: dict = None) -> dict:
     if parameters is None:
         parameters = {}
     
+    logger.debug(f"Raw parameters before auth handling: {parameters}")
     api_key = os.getenv("API_KEY")
     jmespath_expr = os.getenv("API_KEY_JMESPATH")
     
