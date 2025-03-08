@@ -42,7 +42,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                 )
             )
         arguments = request.params.arguments or {}
-        logger.debug(f"Raw function arguments before auth: {arguments}")
+        logger.debug(f"Raw arguments before auth: {arguments}")
 
         operation_details = lookup_operation_details(function_name, openapi_spec_data)
         if not operation_details:
@@ -53,8 +53,9 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                 )
             )
 
-        # Apply custom auth mapping—mimic FastMCP’s flow
-        parameters = handle_custom_auth(operation_details['operation'], arguments)
+        operation = operation_details['operation']
+        operation['method'] = operation_details['method']
+        parameters = handle_custom_auth(operation, arguments)
         logger.debug(f"Parameters after auth handling: {parameters}")
 
         path = operation_details['path']
@@ -77,6 +78,32 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
         request_params = {}
         request_body = None
 
+        # Handle all path parameters, not just required ones
+        path_params_in_openapi = [
+            param['name'] for param in operation.get('parameters', []) if param.get('in') == 'path'
+        ]
+        if path_params_in_openapi:
+            if not isinstance(parameters, dict):
+                logger.error(f"Path parameters {path_params_in_openapi} missing: parameters is not a dict")
+                return types.ServerResult(
+                    root=types.CallToolResult(
+                        content=[types.TextContent(type="text", text=f"Missing path parameters: {path_params_in_openapi}")]
+                    )
+                )
+            missing_params = [p for p in path_params_in_openapi if p not in parameters]
+            if missing_params:
+                logger.error(f"Required path parameters missing: {missing_params}")
+                return types.ServerResult(
+                    root=types.CallToolResult(
+                        content=[types.TextContent(type="text", text=f"Missing required path parameters: {missing_params}")]
+                    )
+                )
+            for param_name in path_params_in_openapi:
+                if param_name in parameters:
+                    api_url = api_url.replace(f"{{{param_name}}}", str(parameters.pop(param_name)))
+                    logger.debug(f"Replaced path param {param_name} in URL: {api_url}")
+
+        # Remaining parameters go to query (GET) or body (non-GET)
         if isinstance(parameters, dict):
             if method == "GET":
                 request_params = parameters
@@ -123,12 +150,11 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
         logger.error(f"Unhandled exception in dispatcher_handler: {e}", exc_info=True)
         return types.ServerResult(
             root=types.CallToolResult(
-                content=[types.TextContent(type="text", text=str(e))]
-                )
+                content=[types.TextContent(type="text", text=f"Internal error: {str(e)}")]
+            )
         )
 
 async def list_tools(request: types.ListToolsRequest) -> types.ServerResult:
-    """Handler for ListToolsRequest to list all registered functions (tools)."""
     logger.debug("Handling list_tools request - start")
     logger.debug(f"Tools list length: {len(tools)}")
     result = types.ServerResult(root=types.ListToolsResult(tools=tools))
@@ -137,26 +163,20 @@ async def list_tools(request: types.ListToolsRequest) -> types.ServerResult:
     return result
 
 def register_functions(spec: Dict) -> List[types.Tool]:
-    """Registers functions (tools) dynamically based on the OpenAPI specification."""
     global tools
     tools = []
-
     if not spec:
         logger.error("OpenAPI spec is None or empty.")
         return tools
-
     if 'paths' not in spec:
         logger.error("No 'paths' key in OpenAPI spec.")
         return tools
-
     logger.debug(f"Spec paths available: {list(spec['paths'].keys())}")
     filtered_paths = {path: item for path, item in spec['paths'].items() if is_tool_whitelisted(path)}
     logger.debug(f"Filtered paths: {list(filtered_paths.keys())}")
-
     if not filtered_paths:
         logger.warning("No whitelisted paths found in OpenAPI spec after filtering.")
         return tools
-
     for path, path_item in filtered_paths.items():
         if not path_item:
             logger.debug(f"Empty path item for {path}")
@@ -169,7 +189,6 @@ def register_functions(spec: Dict) -> List[types.Tool]:
                 raw_name = f"{method.upper()} {path}"
                 function_name = normalize_tool_name(raw_name)
                 description = operation.get('summary', operation.get('description', 'No description available'))
-
                 input_schema = {
                     "type": "object",
                     "properties": {},
@@ -189,7 +208,6 @@ def register_functions(spec: Dict) -> List[types.Tool]:
                         }
                         if param.get('required', False):
                             input_schema['required'].append(param_name)
-
                 tool = types.Tool(
                     name=function_name,
                     description=description,
@@ -199,12 +217,10 @@ def register_functions(spec: Dict) -> List[types.Tool]:
                 logger.debug(f"Registered function: {function_name} ({method.upper()} {path}) with inputSchema: {json.dumps(input_schema)}")
             except Exception as e:
                 logger.error(f"Error registering function for {method.upper()} {path}: {e}", exc_info=True)
-
     logger.info(f"Registered {len(tools)} functions from OpenAPI spec.")
     return tools
 
 def lookup_operation_details(function_name: str, spec: Dict) -> Dict or None:
-    """Looks up OpenAPI operation details based on function name."""
     if not spec or 'paths' not in spec:
         return None
     for path, path_item in spec['paths'].items():
@@ -218,7 +234,6 @@ def lookup_operation_details(function_name: str, spec: Dict) -> Dict or None:
     return None
 
 async def start_server():
-    """Starts the Low-Level MCP server."""
     logger.debug("Starting Low-Level MCP server...")
     async with stdio_server() as (read_stream, write_stream):
         await mcp.run(
@@ -232,31 +247,26 @@ async def start_server():
         )
 
 def run_server():
-    """Runs the Low-Level Any OpenAPI server."""
     global openapi_spec_data
     try:
         openapi_url = os.getenv('OPENAPI_SPEC_URL')
         if not openapi_url:
             logger.critical("OPENAPI_SPEC_URL environment variable is required but not set.")
             sys.exit(1)
-
         openapi_spec_data = fetch_openapi_spec(openapi_url)
         if not openapi_spec_data:
             logger.critical("Failed to fetch or parse OpenAPI specification from OPENAPI_SPEC_URL.")
             sys.exit(1)
         logger.info("OpenAPI specification fetched successfully.")
         logger.debug(f"Full OpenAPI spec: {json.dumps(openapi_spec_data, indent=2)}")
-
         register_functions(openapi_spec_data)
         logger.debug(f"Tools after registration: {[tool.name for tool in tools]}")
         if not tools:
             logger.critical("No valid tools registered. Shutting down.")
             sys.exit(1)
-
         mcp.request_handlers[types.ListToolsRequest] = list_tools
         mcp.request_handlers[types.CallToolRequest] = dispatcher_handler
         logger.debug("Handlers registered.")
-
         asyncio.run(start_server())
     except KeyboardInterrupt:
         logger.debug("MCP server shutdown initiated by user.")
