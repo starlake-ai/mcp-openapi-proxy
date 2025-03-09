@@ -140,7 +140,6 @@ Update your MCP ecosystem configuration:
 #### 3. Testing
 
 After starting the service, refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
-```
 
 ### Render Example
 
