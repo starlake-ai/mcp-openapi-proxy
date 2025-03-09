@@ -176,6 +176,8 @@ After starting the service, refer to the [JSON-RPC Testing](#json-rpc-testing) s
 
 ### Render Example
 
+![image](https://github.com/user-attachments/assets/f1dee1bf-e330-41f1-a700-6386edd8895e)
+
 Render offers a straightforward configuration for deploying the mcp-openapi-proxy. The provided configuration file `examples/claude_desktop_config.json-render` demonstrates how to set up your MCP ecosystem quickly with minimal settings.
 
 #### 1. Verify the Configuration File
