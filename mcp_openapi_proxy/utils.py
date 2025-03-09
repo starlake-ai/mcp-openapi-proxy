@@ -1,7 +1,7 @@
 """
 Utility functions for mcp_openapi_proxy, including logging setup,
 OpenAPI fetching, name normalization, whitelist filtering, auth handling,
-and response type detection.
+parameter stripping, and response type detection.
 """
 
 import os
@@ -11,7 +11,6 @@ import requests
 import re
 import json
 import yaml
-import jmespath
 from urllib.parse import urlparse
 from dotenv import load_dotenv
 from mcp import types
@@ -151,88 +150,33 @@ def fetch_openapi_spec(spec_url: str) -> dict:
         logger.error(f"Error parsing OpenAPI spec from {spec_url}: {e}")
         return None
 
-def get_auth_headers(spec: dict, api_key_env: str = "API_KEY") -> dict:
+def handle_auth(operation: dict) -> dict:
+    """
+    Handles authentication for API requests.
+    - API_KEY: Sets Bearer header.
+    Returns: headers
+    """
+    api_key = os.getenv("API_KEY")
     headers = {}
-    auth_token = os.getenv(api_key_env)
-    if not auth_token:
-        logger.debug(f"No {api_key_env} set, skipping auth headers.")
-        return headers
-    auth_type_override = os.getenv("API_AUTH_TYPE")
-    if auth_type_override:
-        headers["Authorization"] = f"{auth_type_override} {auth_token}"
-        logger.debug(f"Using API_AUTH_TYPE override: Authorization: {auth_type_override} {redact_api_key(auth_token)}")
-        return headers
-    security_defs = spec.get('securityDefinitions', {})
-    for name, definition in security_defs.items():
-        if definition.get('type') == 'apiKey' and definition.get('in') == 'header' and definition.get('name') == 'Authorization':
-            desc = definition.get('description', '')
-            match = re.search(r'(\w+(?:-\w+)*)\s+<token>', desc)
-            if match:
-                prefix = match.group(1)
-                headers["Authorization"] = f"{prefix} {auth_token}"
-                logger.debug(f"Using apiKey with prefix from spec description: Authorization: {prefix} {redact_api_key(auth_token)}")
-            else:
-                headers["Authorization"] = auth_token
-                logger.debug(f"Using raw apiKey auth from spec: Authorization: {redact_api_key(auth_token)}")
-            return headers
-        elif definition.get('type') == 'oauth2':
-            headers["Authorization"] = f"Bearer {auth_token}"
-            logger.debug(f"Using Bearer auth from spec: Authorization: Bearer {redact_api_key(auth_token)}")
-            return headers
-    headers["Authorization"] = auth_token
-    logger.warning(f"No clear auth type in spec, using raw API key: Authorization: {redact_api_key(auth_token)}")
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+        logger.debug(f"Using API_KEY as Bearer: {redact_api_key(api_key)}")
+    logger.debug(f"Headers after auth: {headers}")
     return headers
 
-def handle_custom_auth(operation: dict, parameters: dict = None) -> dict:
+def strip_parameters(parameters: dict = None) -> dict:
+    """
+    Strips specified parameter from parameters if STRIP_PARAM is set.
+    Returns: updated_parameters
+    """
     if parameters is None:
         parameters = {}
-    logger.debug(f"Raw parameters before auth handling: {parameters}")
-    api_key = os.getenv("API_KEY")
-    jmespath_expr = os.getenv("API_KEY_JMESPATH")
-    if not api_key or not jmespath_expr:
-        logger.debug("No API_KEY or API_KEY_JMESPATH set, skipping custom auth handling.")
-        return parameters
-
-    method = operation.get("method", "GET").upper()
-    request_data = {"query": {}, "body": {}}
-    if parameters:
-        for key, value in parameters.items():
-            param_in = next((p.get("in") for p in operation.get("parameters", []) if p.get("name") == key), None)
-            if param_in == "query" or (method == "GET" and param_in not in ["path", "header"]):
-                request_data["query"][key] = value
-            elif param_in == "header":
-                request_data["body"][key] = value
-            elif param_in != "path":
-                request_data["body"][key] = value
-
-    try:
-        if jmespath_expr:
-            parts = jmespath_expr.split(".")
-            if len(parts) == 1:  # Flat key like "token"
-                if method == "GET":
-                    request_data["query"][parts[0]] = api_key
-                else:
-                    request_data["body"][parts[0]] = api_key
-                logger.debug(f"Applied flat API_KEY to {jmespath_expr}: {redact_api_key(api_key)}")
-            else:  # Nested path like "body.auth.key"
-                target = request_data[parts[0]] if parts[0] in request_data else {}
-                current = target
-                for i, part in enumerate(parts[1:], 1):
-                    if i == len(parts) - 1:
-                        current[part] = api_key
-                    else:
-                        current = current.setdefault(part, {})
-                if parts[0] in request_data:
-                    request_data[parts[0]] = target
-                logger.debug(f"Applied nested API_KEY to {jmespath_expr}: {redact_api_key(api_key)}")
-    except Exception as e:
-        logger.error(f"Error applying JMESPath expression {jmespath_expr}: {e}")
-
-    if method == "GET":
-        parameters = {**parameters, **request_data["query"]}
-    else:
-        parameters = {**parameters, **request_data["body"]}
-    logger.debug(f"Parameters after custom auth merge: {parameters}")
+    logger.debug(f"Raw parameters before stripping: {parameters}")
+    strip_param = os.getenv("STRIP_PARAM")
+    if strip_param and isinstance(parameters, dict) and strip_param in parameters:
+        del parameters[strip_param]
+        logger.debug(f"Stripped param '{strip_param}' from parameters")
+    logger.debug(f"Parameters after stripping: {parameters}")
     return parameters
 
 def map_schema_to_tools(schema: dict) -> list:
