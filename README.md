@@ -56,11 +56,7 @@ To incorporate **mcp-openapi-proxy** into your MCP ecosystem, configure it withi
             "args": ["mcp-openapi-proxy"],
             "env": {
                 "OPENAPI_SPEC_URL": "${OPENAPI_SPEC_URL}",
-                "API_KEY": "",
-                "TOOL_WHITELIST": "",
-                "TOOL_NAME_PREFIX": "",
-                "API_KEY_JMESPATH": "",
-                "API_AUTH_TYPE": ""
+                "API_KEY": "${OPENAPI_API_KEY}"
             }
         }
     }
@@ -91,8 +87,8 @@ Refer to the **Examples** section below for practical configurations tailored to
 - `TOOL_WHITELIST`: (Optional) A comma-separated list of endpoint paths to expose as tools.
 - `TOOL_NAME_PREFIX`: (Optional) A prefix to prepend to all tool names.
 - `API_KEY`: (Optional) Authentication token for the API, sent as `Bearer <API_KEY>` in the Authorization header by default.
-- `API_KEY_JMESPATH`: (Optional) JMESPath expression to map `API_KEY` into request parameters (e.g., `token` for Slack).
 - `API_AUTH_TYPE`: (Optional) Overrides the default `Bearer` Authorization header type (e.g., `Api-Key` for GetZep).
+- `STRIP_PARAM`: (Optional) JMESPath expression to strip unwanted parameters (e.g., `token` for Slack).
 
 ## Examples
 
@@ -192,7 +188,7 @@ Update your configuration:
 - **OPENAPI_SPEC_URL**: Slack’s OpenAPI spec URL.
 - **TOOL_WHITELIST**: Limits tools to useful endpoint groups (e.g., chat, conversations, users).
 - **API_KEY**: Your Slack bot token (e.g., `xoxb-...`—replace `<your_slack_bot_token>`).
-- **API_KEY_JMESPATH**: Maps `API_KEY` to the `token` field in the request payload, per Slack’s API.
+- **STRIP_PARAM**: Removes the token field from the request payload, as this is handled by the HTTP Header.
 - **TOOL_NAME_PREFIX**: Prepends `slack_` to tool names (e.g., `slack_get_users_info`).
 
 #### 3. Resulting Tools
@@ -207,7 +203,7 @@ Example tools in FastMCP mode:
 Test with environment variables:
 
 ```bash
-OPENAPI_SPEC_URL="https://raw.githubusercontent.com/slackapi/slack-api-specs/master/web-api/slack_web_openapi_v2.json" API_KEY="<your_slack_bot_token>" API_KEY_JMESPATH="token" TOOL_NAME_PREFIX="slack_" TOOL_WHITELIST="/chat,/bots,/conversations,/reminders,/files,/users" uvx mcp-openapi-proxy
+OPENAPI_SPEC_URL="https://raw.githubusercontent.com/slackapi/slack-api-specs/master/web-api/slack_web_openapi_v2.json" API_KEY="<your_slack_bot_token>" TOOL_NAME_PREFIX="slack_" TOOL_WHITELIST="/chat,/bots,/conversations,/reminders,/files,/users" uvx mcp-openapi-proxy
 ```
 
 Try these commands in your MCP client:
@@ -309,7 +305,7 @@ OPENAPI_SPEC_URL="file:///path/to/your/getzep.swagger.json" API_KEY="<your_getze
 - **Missing OPENAPI_SPEC_URL:** Ensure it’s set to a valid OpenAPI JSON URL or local file path.
 - **Invalid Specification:** Verify the OpenAPI document is standard-compliant.
 - **Tool Filtering Issues:** Check `TOOL_WHITELIST` matches desired endpoints.
-- **Authentication Errors:** Confirm `API_KEY`, `API_KEY_JMESPATH`, and `API_AUTH_TYPE` are correct.
+- **Authentication Errors:** Confirm `API_KEY` and `API_AUTH_TYPE` are correct.
 - **Logging:** Set `DEBUG=true` for detailed output to stderr.
 - **Test Server:** Run directly:
 
