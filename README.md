@@ -94,7 +94,7 @@ Refer to the **Examples** section below for practical configurations tailored to
 
 ## Examples
 
-For testing, you can either run the uvx command as demonstrated in the examples, or interact with the MCP server via JSON-RPC messages to list tools and resources. See the "JSON-RPC Testing" section below.
+For testing, you can run the uvx command as demonstrated in the examples, then interact with the MCP server via JSON-RPC messages to list tools and resources. See the "JSON-RPC Testing" section below.
 
 This section provides examples to demonstrate configuration simplicity, authentication flexibility, and detailed tool generation.
 
@@ -134,7 +134,8 @@ Start the service with:
 OPENAPI_SPEC_URL="https://glama.ai/api/mcp/openapi.json" uvx mcp-openapi-proxy
 ```
 Then refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
-
+  
+---
 ### Fly.io Example
 
 ![image](https://github.com/user-attachments/assets/80abd7fa-ccca-4e35-b0dd-36ef82a236c5)
@@ -174,17 +175,18 @@ Update your MCP ecosystem configuration:
 
 After starting the service, refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
 
+---
 ### Render Example
 
 ![image](https://github.com/user-attachments/assets/f1dee1bf-e330-41f1-a700-6386edd8895e)
 
-Render offers a straightforward configuration for deploying the mcp-openapi-proxy. The provided configuration file `examples/claude_desktop_config.json-render` demonstrates how to set up your MCP ecosystem quickly with minimal settings.
+Render offers infrastructure hosting that can be managed via an API. The provided configuration file `examples/render-claude_desktop_config.json` demonstrates how to set up your MCP ecosystem quickly with minimal settings.
 
 #### 1. Verify the Configuration File
 
 Inspect the configuration file to ensure it meets your deployment needs. For example, run the following command:
 ```bash
-cat examples/claude_desktop_config.json-render
+cat examples/render-claude_desktop_config.json
 ```
 
 #### 2. Configure mcp-openapi-proxy for Render
@@ -214,6 +216,7 @@ OPENAPI_SPEC_URL="https://api-docs.render.com/openapi/6140fb3daeae351056086186" 
 ```
 After starting the service, refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
 
+---
 ### Slack Example
 
 ![image](https://github.com/user-attachments/assets/706adad5-3f1c-4f32-aef5-6a1af794aef3)
@@ -264,6 +267,7 @@ Example tools in FastMCP mode:
 
 After starting the service, refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
 
+---
 ### GetZep Example
 
 ![image](https://github.com/user-attachments/assets/9a4fdabb-fa3d-4626-a50f-438147eadc9f)
