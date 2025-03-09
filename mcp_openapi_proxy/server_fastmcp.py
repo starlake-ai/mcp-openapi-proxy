@@ -7,9 +7,8 @@ Configuration is controlled via environment variables:
 - OPENAPI_SPEC_URL_<hash>: Unique URL per test, falls back to OPENAPI_SPEC_URL.
 - TOOL_WHITELIST: Comma-separated list of allowed endpoint paths.
 - SERVER_URL_OVERRIDE: Optional override for the base URL from the OpenAPI spec.
-- API_KEY: Optional token for endpoints requiring authentication.
-- API_AUTH_TYPE: Optional type like 'Bearer' or 'Api-Key'.
-- API_KEY_JMESPATH: Optional JMESPath expression to map API_KEY into request parameters.
+- API_KEY: Generic token for Bearer header.
+- STRIP_PARAM: Param name (e.g., "auth") to remove from parameters.
 """
 
 import os
@@ -19,7 +18,7 @@ import requests
 from typing import Dict, Any
 from mcp import types
 from mcp.server.fastmcp import FastMCP
-from mcp_openapi_proxy.utils import setup_logging, is_tool_whitelisted, fetch_openapi_spec, get_auth_headers, build_base_url, normalize_tool_name, handle_custom_auth, get_tool_prefix
+from mcp_openapi_proxy.utils import setup_logging, is_tool_whitelisted, fetch_openapi_spec, build_base_url, normalize_tool_name, handle_auth, strip_parameters, get_tool_prefix
 
 logger = setup_logging(debug=os.getenv("DEBUG", "").lower() in ("true", "1", "yes"))
 
@@ -112,8 +111,8 @@ def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
 def call_function(*, function_name: str, parameters: dict = None, env_key: str = "OPENAPI_SPEC_URL") -> str:
     """Calls a function derived from the OpenAPI specification."""
     logger.debug(f"call_function invoked with function_name='{function_name}' and parameters={parameters}")
-    logger.debug(f"API_KEY from env: {os.getenv('API_KEY', '<not set>')[:5] + '...' if os.getenv('API_KEY') else '<not set>'}")
-    logger.debug(f"API_KEY_JMESPATH from env: {os.getenv('API_KEY_JMESPATH', '<not set>')}")
+    logger.debug(f"API_KEY: {os.getenv('API_KEY', '<not set>')[:5] + '...' if os.getenv('API_KEY') else '<not set>'}")
+    logger.debug(f"STRIP_PARAM: {os.getenv('STRIP_PARAM', '<not set>')}")
     if not function_name:
         logger.error("function_name is empty or None")
         return json.dumps({"error": "function_name is required"})
@@ -159,8 +158,10 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
 
     operation = function_def["operation"]
     operation["method"] = function_def["method"]
-    parameters = handle_custom_auth(operation, parameters)
-    logger.debug(f"Parameters after auth handling: {parameters}")
+    headers = handle_auth(operation)
+    parameters = strip_parameters(parameters)
+    if function_def["method"] != "GET":
+        headers["Content-Type"] = "application/json"
 
     if not is_tool_whitelisted(function_def["path"]):
         logger.error(f"Access to function '{function_name}' is not allowed.")
@@ -173,14 +174,9 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
 
     path = function_def["path"]
     api_url = f"{base_url.rstrip('/')}/{path.lstrip('/')}"
-    headers = {}
-    if function_def["method"] != "GET":
-        headers["Content-Type"] = "application/json"
-    headers.update(get_auth_headers(spec))
     request_params = {}
     request_body = None
 
-    # Map all path parameters dynamically from the spec
     if isinstance(parameters, dict):
         path_params_in_openapi = [
             param["name"] for param in operation.get("parameters", []) if param.get("in") == "path"
@@ -197,7 +193,6 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
                 if param_name in parameters:
                     api_url = api_url.replace(f"{{{param_name}}}", str(parameters.pop(param_name)))
                     logger.debug(f"Replaced path param {param_name} in URL: {api_url}")
-        # Remaining parameters go to query (GET) or body (non-GET)
         if function_def["method"] == "GET":
             request_params = parameters
         else:

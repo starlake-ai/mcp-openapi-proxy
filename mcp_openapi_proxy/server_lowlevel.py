@@ -15,12 +15,12 @@ from mcp import types
 from mcp.server.lowlevel import Server
 from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
-from mcp_openapi_proxy.utils import setup_logging, normalize_tool_name, is_tool_whitelisted, fetch_openapi_spec, get_auth_headers, detect_response_type, build_base_url, handle_custom_auth
+from mcp_openapi_proxy.utils import setup_logging, normalize_tool_name, is_tool_whitelisted, fetch_openapi_spec, build_base_url, handle_auth, strip_parameters, detect_response_type
 
 DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
 logger = setup_logging(debug=DEBUG)
 
-tools: List[types.Tool] = []
+tools: List[types.Tool] = []  # Global tools list
 openapi_spec_data = None
 
 mcp = Server("OpenApiProxy-LowLevel")
@@ -31,8 +31,8 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
     try:
         function_name = request.params.name
         logger.debug(f"Dispatcher received CallToolRequest for function: {function_name}")
-        logger.debug(f"API_KEY from env: {os.getenv('API_KEY', '<not set>')[:5] + '...' if os.getenv('API_KEY') else '<not set>'}")
-        logger.debug(f"API_KEY_JMESPATH from env: {os.getenv('API_KEY_JMESPATH', '<not set>')}")
+        logger.debug(f"API_KEY: {os.getenv('API_KEY', '<not set>')[:5] + '...' if os.getenv('API_KEY') else '<not set>'}")
+        logger.debug(f"STRIP_PARAM: {os.getenv('STRIP_PARAM', '<not set>')}")
         tool = next((tool for tool in tools if tool.name == function_name), None)
         if not tool:
             logger.error(f"Unknown function requested: {function_name}")
@@ -42,7 +42,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                 )
             )
         arguments = request.params.arguments or {}
-        logger.debug(f"Raw arguments before auth: {arguments}")
+        logger.debug(f"Raw arguments before processing: {arguments}")
 
         operation_details = lookup_operation_details(function_name, openapi_spec_data)
         if not operation_details:
@@ -55,11 +55,13 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
 
         operation = operation_details['operation']
         operation['method'] = operation_details['method']
-        parameters = handle_custom_auth(operation, arguments)
-        logger.debug(f"Parameters after auth handling: {parameters}")
+        headers = handle_auth(operation)
+        parameters = strip_parameters(arguments)
+        method = operation_details['method']
+        if method != "GET":
+            headers["Content-Type"] = "application/json"
 
         path = operation_details['path']
-        method = operation_details['method']
 
         base_url = build_base_url(openapi_spec_data)
         if not base_url:
@@ -71,14 +73,9 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
             )
 
         api_url = f"{base_url.rstrip('/')}/{path.lstrip('/')}"
-        headers = {}
-        if method != "GET":
-            headers["Content-Type"] = "application/json"
-        headers.update(get_auth_headers(openapi_spec_data))
         request_params = {}
         request_body = None
 
-        # Map all path parameters dynamically from the spec
         if isinstance(parameters, dict):
             path_params_in_openapi = [
                 param['name'] for param in operation.get('parameters', []) if param.get('in') == 'path'
@@ -99,7 +96,6 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                     if param_name in parameters:
                         api_url = api_url.replace(f"{{{param_name}}}", str(parameters.pop(param_name)))
                         logger.debug(f"Replaced path param {param_name} in URL: {api_url}")
-            # Remaining parameters go to query (GET) or body (non-GET)
             if method == "GET":
                 request_params = parameters
             else:
@@ -158,7 +154,11 @@ async def list_tools(request: types.ListToolsRequest) -> types.ServerResult:
     return result
 
 def register_functions(spec: Dict) -> List[types.Tool]:
+    """Register tools from OpenAPI spec, preserving across calls if already populated."""
     global tools
+    if tools:  # If tools already exist, don’t reset unless spec changes
+        logger.debug("Tools already registered, skipping re-registration")
+        return tools
     tools = []
     if not spec:
         logger.error("OpenAPI spec is None or empty.")
