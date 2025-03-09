@@ -12,6 +12,7 @@ import json
 import requests
 from typing import List, Dict, Any
 from mcp import types
+from urllib.parse import unquote
 from mcp.server.lowlevel import Server
 from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
@@ -94,7 +95,9 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                     )
                 for param_name in path_params_in_openapi:
                     if param_name in parameters:
-                        api_url = api_url.replace(f"{{{param_name}}}", str(parameters.pop(param_name)))
+                        value = str(parameters.pop(param_name))
+                        api_url = api_url.replace(f"{{{param_name}}}", value)
+                        api_url = api_url.replace(f"%7B{param_name}%7D", value)
                         logger.debug(f"Replaced path param {param_name} in URL: {api_url}")
             if method == "GET":
                 request_params = parameters
