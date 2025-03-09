@@ -156,7 +156,9 @@ OPENAPI_SPEC_URL="https://raw.githubusercontent.com/abhiaagarwal/peristera/refs/
 
 ### Slack Example
 
-Slack’s API showcases payload-based authentication with JMESPath. Obtain a bot token from [Slack API documentation](https://api.slack.com/authentication/token-types#bot).
+![image](https://github.com/user-attachments/assets/706adad5-3f1c-4f32-aef5-6a1af794aef3)
+
+Slack’s API showcases stripping unnecessary token payload using JMESPath. Obtain a bot token from [Slack API documentation](https://api.slack.com/authentication/token-types#bot).
 
 #### 1. Verify the OpenAPI Specification
 
