@@ -181,9 +181,8 @@ Update your configuration:
             "env": {
                 "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/slackapi/slack-api-specs/master/web-api/slack_web_openapi_v2.json",
                 "TOOL_WHITELIST": "/chat,/bots,/conversations,/reminders,/files,/users",
-                "API_KEY": "<your_slack_bot_token>",
-                "API_KEY_JMESPATH": "token",
-                "TOOL_NAME_PREFIX": "slack_"
+                "API_KEY": "<your_slack_bot_token, starts with xoxb>",
+                "STRIP_PARAM": "token"
             }
         }
     }
