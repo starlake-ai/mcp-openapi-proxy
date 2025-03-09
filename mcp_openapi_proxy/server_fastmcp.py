@@ -178,6 +178,8 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
     request_body = None
 
     if isinstance(parameters, dict):
+        if "stream" in parameters and parameters["stream"]:
+            del parameters["stream"]
         path_params_in_openapi = [
             param["name"] for param in operation.get("parameters", []) if param.get("in") == "path"
         ]
