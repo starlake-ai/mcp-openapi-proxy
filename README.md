@@ -14,6 +14,7 @@
 - [Environment Variables](#environment-variables)
 - [Examples](#examples)
   - [Fly.io Example](#flyio-example)
+  - [Render Example](#render-example)
   - [Slack Example](#slack-example)
   - [GetZep Example](#getzep-example)
 - [Troubleshooting](#troubleshooting)
@@ -92,6 +93,8 @@ Refer to the **Examples** section below for practical configurations tailored to
 
 ## Examples
 
+For testing, you can either run the uvx command as demonstrated in the examples, or interact with the MCP server via JSON-RPC messages to list tools and resources. See the "JSON-RPC Testing" section below.
+
 This section provides examples to demonstrate configuration simplicity, authentication flexibility, and detailed tool generation.
 
 ### Fly.io Example
@@ -134,21 +137,51 @@ Update your MCP ecosystem configuration:
 - **API_KEY**: Your Fly.io API token (replace `<your_flyio_token_here>`). Find it in `~/.fly/config.yml` under `access_token`.
 - **API_AUTH_TYPE**: Set to `Api-Key` for Fly.io’s header-based authentication (overrides default `Bearer`).
 
-#### 3. Resulting Tools
+#### 3. Testing
 
-This generates tools like:
-- `get_machines` (lists machines).
-- `post_machines` (creates machines).
-
-Run `list_functions` in FastMCP mode to see the full set.
-
-#### 4. Testing
-
-Verify with:
-
-```bash
-OPENAPI_SPEC_URL="https://raw.githubusercontent.com/abhiaagarwal/peristera/refs/heads/main/fly-machines-gen/fixed_spec.json" API_KEY="<your_flyio_token_here>" API_AUTH_TYPE="Api-Key" uvx mcp-openapi-proxy
+After starting the service, refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
 ```
+
+### Render Example
+
+Render offers a straightforward configuration for deploying the mcp-openapi-proxy. The provided configuration file `examples/claude_desktop_config.json-render` demonstrates how to set up your MCP ecosystem quickly with minimal settings.
+
+#### 1. Verify the Configuration File
+
+Inspect the configuration file to ensure it meets your deployment needs. For example, run the following command:
+```bash
+cat examples/claude_desktop_config.json-render
+```
+
+#### 2. Configure mcp-openapi-proxy for Render
+
+Add the following configuration to your MCP ecosystem settings (typically in your MCP settings file):
+```json
+{
+    "mcpServers": {
+        "render": {
+            "command": "uvx",
+            "args": ["mcp-openapi-proxy"],
+            "env": {
+                "OPENAPI_SPEC_URL": "https://api-docs.render.com/openapi/6140fb3daeae351056086186",
+                "TOOL_WHITELIST": "/services,/maintenance",
+                "API_KEY": "your_render_token_here"
+            }
+        }
+    }
+}
+```
+- **OPENAPI_SPEC_URL**: Points to your Render OpenAPI specification.
+- **API_KEY**: Your Render API key.
+
+#### 3. Testing
+
+Launch the proxy with your Render configuration:
+```bash
+OPENAPI_SPEC_URL="https://api-docs.render.com/openapi/6140fb3daeae351056086186" TOOL_WHITELIST="/services,/maintenance" API_KEY="your_render_token_here" uvx mcp-openapi-proxy
+```
+
+After starting the service, refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
 
 ### Slack Example
 
@@ -202,16 +235,7 @@ Example tools in FastMCP mode:
 
 #### 4. Testing
 
-Test with environment variables:
-
-```bash
-OPENAPI_SPEC_URL="https://raw.githubusercontent.com/slackapi/slack-api-specs/master/web-api/slack_web_openapi_v2.json" API_KEY="<your_slack_bot_token>" TOOL_NAME_PREFIX="slack_" TOOL_WHITELIST="/chat,/bots,/conversations,/reminders,/files,/users" uvx mcp-openapi-proxy
-```
-
-Try these commands in your MCP client:
-- List tools: `list_functions`.
-- Get Slackbot info: `call_function slack_get_users_info '{"user": "USLACKBOT"}'`.
-- Post a message: `call_function slack_post_chat_postmessage '{"channel": "C12345678", "text": "G’day from MCP, ya legends!"}'` (replace `C12345678` with a valid channel ID your bot can access).
+After starting the service, refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
 
 ### GetZep Example
 
@@ -244,7 +268,7 @@ Update your configuration:
                 "TOOL_WHITELIST": "/sessions",
                 "API_KEY": "<your_getzep_api_key>",
                 "API_AUTH_TYPE": "Api-Key",
-                "TOOL_NAME_PREFIX": "getzep_"
+                "TOOL_NAME_PREFIX": "zep_"
             }
         }
     }
@@ -290,19 +314,31 @@ Full list (abbreviated):
 
 #### 4. Testing
 
-Verify with the hosted spec:
-
-```bash
-OPENAPI_SPEC_URL="https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/getzep.swagger.json" API_KEY="<your_getzep_api_key>" API_AUTH_TYPE="Api-Key" uvx mcp-openapi-proxy
-```
-
-Or with a local spec:
-
+After starting the service, refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
 ```bash
 OPENAPI_SPEC_URL="file:///path/to/your/getzep.swagger.json" API_KEY="<your_getzep_api_key>" API_AUTH_TYPE="Api-Key" uvx mcp-openapi-proxy
 ```
 
 ## Troubleshooting
+
+### JSON-RPC Testing
+
+For alternative testing, you can interact with the MCP server via JSON-RPC. After starting the server, paste the following initialization message:
+```json
+{"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"claude-ai","version":"0.1.0"}},"jsonrpc":"2.0","id":0}
+```
+
+Expected response:
+```json
+{"jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2024-11-05","capabilities":{"experimental":{},"prompts":{"listChanged":false},"resources":{"subscribe":false,"listChanged":false},"tools":{"listChanged":false}},"serverInfo":{"name":"sqlite","version":"0.1.0"}}}
+```
+
+Then paste these follow-up messages:
+```json
+{"method":"notifications/initialized","jsonrpc":"2.0"}
+{"method":"resources/list","params":{},"jsonrpc":"2.0","id":1}
+{"method":"tools/list","params":{},"jsonrpc":"2.0","id":2}
+```
 
 - **Missing OPENAPI_SPEC_URL:** Ensure it’s set to a valid OpenAPI JSON URL or local file path.
 - **Invalid Specification:** Verify the OpenAPI document is standard-compliant.
