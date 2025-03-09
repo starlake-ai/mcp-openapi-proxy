@@ -7,9 +7,9 @@
       ],
       "env": {
         "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/qdrant/qdrant/master/docs/redoc/master/openapi.json",
-        "TOOL_WHITELIST": "/collections,/collections/{collection_name}/points/search,/collections/{collection_name}/points",
-        "API_KEY": "your_qdrant_token_here",
-        "TOOL_NAME_PREFIX": "qdrant"
+        "SERVER_URL_OVERRIDE": "https://localhost:6333",
+        "TOOL_WHITELIST": "/collections",
+        "API_KEY": "your_qdrant_token_here"
       }
     }
   }
