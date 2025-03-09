@@ -1,4 +1,6 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()
 import json
 import pytest
 import logging
@@ -30,7 +32,7 @@ logger = logging.getLogger(__name__)
 def test_chat_completion_modes(test_mode, params, reset_env_and_module):
     env_key = reset_env_and_module
     api_key = os.environ.get("OPENWEBUI_API_KEY", "test_token_placeholder")
-    os.environ["API_AUTH_BEARER"] = api_key
+    os.environ["API_KEY"] = api_key
     spec_url = "http://localhost:3000/openapi.json"
     base_url = "http://localhost:3000/"  # Trailing slash
     os.environ[env_key] = spec_url
@@ -45,10 +47,10 @@ def test_chat_completion_modes(test_mode, params, reset_env_and_module):
     except (requests.RequestException, json.JSONDecodeError) as e:
         pytest.skip(f"OpenWebUI not available at {spec_url}: {e}")
 
-    # Check available models from /v1/models
+    # Check available models from /api/models
     try:
         headers = {"Authorization": f"Bearer {api_key}"}
-        models_response = requests.get(f"{base_url}v1/models", headers=headers, timeout=2)
+        models_response = requests.get(f"{base_url}api/models", headers=headers, timeout=2)
         models_response.raise_for_status()
         models_data = models_response.json()
         logger.debug(f"Raw models response: {json.dumps(models_data, indent=2)}")
@@ -65,7 +67,7 @@ def test_chat_completion_modes(test_mode, params, reset_env_and_module):
         if params["model"] not in model_names:
             pytest.skip(f"Model {params['model']} not available in {model_names}")
     except (requests.RequestException, json.JSONDecodeError) as e:
-        pytest.skip(f"Failed to fetch models from {base_url}v1/models: {e}")
+        pytest.skip(f"Failed to fetch models from {base_url}api/models: {e}")
 
     from mcp_openapi_proxy.server_fastmcp import list_functions, call_function
 
@@ -75,9 +77,9 @@ def test_chat_completion_modes(test_mode, params, reset_env_and_module):
     print(f"DEBUG: OpenWebUI tools: {tools_json}")
     assert len(tools) > 0, f"No tools generated from OpenWebUI spec: {tools_json}"
 
-    logger.debug(f"Filtering tools for chat/completions: {[t['name'] for t in tools]}")
+    logger.debug(f"Filtering tools for chat completions: {[t['name'] for t in tools]}")
     chat_completion_func = next(
-        (t["name"] for t in tools if "chat/completions" in t["name"] and t["method"] == "POST"),
+        (t["name"] for t in tools if "/api/chat/completions" in t.get("original_name", "").lower() and t.get("method", "").upper() == "POST"),
         None
     )
     assert chat_completion_func, f"No POST chat/completions function found in tools: {tools_json}"
