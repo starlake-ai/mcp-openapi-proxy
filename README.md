@@ -13,6 +13,7 @@
   - [Low-Level Mode (Default)](#low-level-mode-default)
 - [Environment Variables](#environment-variables)
 - [Examples](#examples)
+  - [Glama Example](#glama-example)
   - [Fly.io Example](#flyio-example)
   - [Render Example](#render-example)
   - [Slack Example](#slack-example)
@@ -97,27 +98,60 @@ For testing, you can either run the uvx command as demonstrated in the examples,
 
 This section provides examples to demonstrate configuration simplicity, authentication flexibility, and detailed tool generation.
 
+### Glama Example
+
+Glama offers the most minimal configuration for mcp-openapi-proxy, requiring only the `OPENAPI_SPEC_URL` environment variable. This simplicity makes it ideal for quick testing.
+
+#### 1. Verify the OpenAPI Specification
+
+Retrieve the Glama OpenAPI specification:
+```bash
+curl https://glama.ai/api/mcp/openapi.json
+```
+Ensure the response is a valid OpenAPI JSON document.
+
+#### 2. Configure mcp-openapi-proxy for Glama
+
+Add the following configuration to your MCP ecosystem settings:
+```json
+{
+    "mcpServers": {
+        "glama": {
+            "command": "uvx",
+            "args": ["mcp-openapi-proxy"],
+            "env": {
+                "OPENAPI_SPEC_URL": "https://glama.ai/api/mcp/openapi.json"
+            }
+        }
+    }
+}
+```
+
+#### 3. Testing
+
+Start the service with:
+```bash
+OPENAPI_SPEC_URL="https://glama.ai/api/mcp/openapi.json" uvx mcp-openapi-proxy
+```
+Then refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
+
 ### Fly.io Example
 
 ![image](https://github.com/user-attachments/assets/80abd7fa-ccca-4e35-b0dd-36ef82a236c5)
-
 
 Fly.io provides a simple API for managing machines, making it an ideal starting point. Obtain an API token from [Fly.io documentation](https://fly.io/docs/hands-on/install-flyctl/).
 
 #### 1. Verify the OpenAPI Specification
 
 Retrieve the Fly.io OpenAPI specification:
-
 ```bash
 curl https://raw.githubusercontent.com/abhiaagarwal/peristera/refs/heads/main/fly-machines-gen/fixed_spec.json
 ```
-
 Ensure the response is a valid OpenAPI JSON document.
 
 #### 2. Configure mcp-openapi-proxy for Fly.io
 
 Update your MCP ecosystem configuration:
-
 ```json
 {
     "mcpServers": {
@@ -132,7 +166,6 @@ Update your MCP ecosystem configuration:
     }
 }
 ```
-
 - **OPENAPI_SPEC_URL**: Points to the Fly.io OpenAPI specification.
 - **API_KEY**: Your Fly.io API token (replace `<your_flyio_token_here>`). Find it in `~/.fly/config.yml` under `access_token`.
 - **API_AUTH_TYPE**: Set to `Api-Key` for Fly.io’s header-based authentication (overrides default `Bearer`).
@@ -170,8 +203,6 @@ Add the following configuration to your MCP ecosystem settings (typically in you
     }
 }
 ```
-- **OPENAPI_SPEC_URL**: Points to your Render OpenAPI specification.
-- **API_KEY**: Your Render API key.
 
 #### 3. Testing
 
@@ -179,7 +210,6 @@ Launch the proxy with your Render configuration:
 ```bash
 OPENAPI_SPEC_URL="https://api-docs.render.com/openapi/6140fb3daeae351056086186" TOOL_WHITELIST="/services,/maintenance" API_KEY="your_render_token_here" uvx mcp-openapi-proxy
 ```
-
 After starting the service, refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
 
 ### Slack Example
@@ -191,17 +221,14 @@ Slack’s API showcases stripping unnecessary token payload using JMESPath. Obta
 #### 1. Verify the OpenAPI Specification
 
 Retrieve the Slack OpenAPI specification:
-
 ```bash
 curl https://raw.githubusercontent.com/slackapi/slack-api-specs/master/web-api/slack_web_openapi_v2.json
 ```
-
 Ensure it’s a valid OpenAPI JSON document.
 
 #### 2. Configure mcp-openapi-proxy for Slack
 
 Update your configuration:
-
 ```json
 {
     "mcpServers": {
@@ -218,7 +245,6 @@ Update your configuration:
     }
 }
 ```
-
 - **OPENAPI_SPEC_URL**: Slack’s OpenAPI spec URL.
 - **TOOL_WHITELIST**: Limits tools to useful endpoint groups (e.g., chat, conversations, users).
 - **API_KEY**: Your Slack bot token (e.g., `xoxb-...`—replace `<your_slack_bot_token>`).
@@ -245,17 +271,14 @@ GetZep offers a free cloud API for memory management with detailed endpoints. Si
 #### 1. Verify the OpenAPI Specification
 
 Retrieve the project-provided GetZep OpenAPI specification:
-
 ```bash
 curl https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/getzep.swagger.json
 ```
-
 Ensure it’s a valid OpenAPI JSON document. Alternatively, generate your own spec and use `file://` to point to a local file.
 
 #### 2. Configure mcp-openapi-proxy for GetZep
 
 Update your configuration:
-
 ```json
 {
     "mcpServers": {
@@ -273,7 +296,6 @@ Update your configuration:
     }
 }
 ```
-
 - **OPENAPI_SPEC_URL**: Points to the project-provided GetZep Swagger spec (or use `file:///path/to/your/spec.json` for a local file).
 - **TOOL_WHITELIST**: Limits to `/sessions` endpoints.
 - **API_KEY**: Your GetZep API key.
@@ -326,7 +348,6 @@ For alternative testing, you can interact with the MCP server via JSON-RPC. Afte
 ```json
 {"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"claude-ai","version":"0.1.0"}},"jsonrpc":"2.0","id":0}
 ```
-
 Expected response:
 ```json
 {"jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2024-11-05","capabilities":{"experimental":{},"prompts":{"listChanged":false},"resources":{"subscribe":false,"listChanged":false},"tools":{"listChanged":false}},"serverInfo":{"name":"sqlite","version":"0.1.0"}}}
@@ -345,7 +366,6 @@ Then paste these follow-up messages:
 - **Authentication Errors:** Confirm `API_KEY` and `API_AUTH_TYPE` are correct.
 - **Logging:** Set `DEBUG=true` for detailed output to stderr.
 - **Test Server:** Run directly:
-
 ```bash
 uvx mcp-openapi-proxy
 ```
