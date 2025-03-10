@@ -78,13 +78,19 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
         request_body = None
 
         if isinstance(parameters, dict):
-            path_params_in_openapi = [
-                param['name'] for param in operation.get('parameters', []) if param.get('in') == 'path'
-            ]
+            merged_params = []
+            # Get any path-level parameters from the spec
+            path_item = openapi_spec_data.get("paths", {}).get(path, {})
+            if isinstance(path_item, dict) and "parameters" in path_item:
+                merged_params.extend(path_item["parameters"])
+            # Add operation-level parameters
+            if "parameters" in operation:
+                merged_params.extend(operation["parameters"])
+            path_params_in_openapi = [param["name"] for param in merged_params if param.get("in") == "path"]
             if path_params_in_openapi:
                 missing_required = [
-                    param['name'] for param in operation.get('parameters', [])
-                    if param.get('in') == 'path' and param.get('required', False) and param['name'] not in parameters
+                    param["name"] for param in merged_params
+                    if param.get("in") == "path" and param.get("required", False) and param["name"] not in parameters
                 ]
                 if missing_required:
                     logger.error(f"Missing required path parameters: {missing_required}")
@@ -158,10 +164,12 @@ async def list_tools(request: types.ListToolsRequest) -> types.ServerResult:
 
 def register_functions(spec: Dict) -> List[types.Tool]:
     """Register tools from OpenAPI spec, preserving across calls if already populated."""
-    global tools
-    if tools:  # If tools already exist, don’t reset unless spec changes
-        logger.debug("Tools already registered, skipping re-registration")
-        return tools
+    global tools, openapi_spec_data
+    # Assign spec to global variable for later lookup
+    openapi_spec_data = spec
+    # Always re-register tools for each spec
+    logger.debug("Clearing previously registered tools to allow re-registration")
+    tools.clear()
     tools = []
     if not spec:
         logger.error("OpenAPI spec is None or empty.")
