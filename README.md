@@ -100,6 +100,8 @@ This section provides examples to demonstrate configuration simplicity, authenti
 
 ### Glama Example
 
+![image](https://github.com/user-attachments/assets/84afdaa8-7b4f-4726-835f-64255ca970b7)
+
 Glama offers the most minimal configuration for mcp-openapi-proxy, requiring only the `OPENAPI_SPEC_URL` environment variable. This simplicity makes it ideal for quick testing.
 
 #### 1. Verify the OpenAPI Specification
