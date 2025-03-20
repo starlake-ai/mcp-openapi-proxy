@@ -42,11 +42,22 @@ prompts: List[types.Prompt] = [
         description="Summarizes the purpose of the OpenAPI specification",
         arguments=[],
         messages=lambda args: [
-            {"role": "assistant", "content": {"type": "text", "text": "This OpenAPI spec defines an API’s endpoints, parameters, and responses, making it a blueprint for devs to build and integrate stuff without messing it up."}}
+            {"role": "assistant", "content": {"type": "text", "text": "This OpenAPI spec defines an API’s endpoints, parameters, and responses, making it a blueprint for devs to build and integrate stuff without errors."}}
         ]
     )
 ]
 openapi_spec_data = None
+
+# Fetch spec at module level
+openapi_url = os.getenv('OPENAPI_SPEC_URL')
+if not openapi_url:
+    logger.critical("OPENAPI_SPEC_URL environment variable is required but not set.")
+    sys.exit(1)
+openapi_spec_data = fetch_openapi_spec(openapi_url)
+if not openapi_spec_data:
+    logger.critical("Failed to fetch or parse OpenAPI specification from OPENAPI_SPEC_URL.")
+    sys.exit(1)
+logger.info("OpenAPI specification fetched successfully at startup.")
 
 mcp = Server("OpenApiProxy-LowLevel")
 
@@ -211,24 +222,29 @@ async def read_resource(request: types.ReadResourceRequest) -> types.ServerResul
         )
     try:
         if not openapi_spec_data:
-            logger.error("OpenAPI spec data not loaded")
-            return types.ServerResult(
-                root=types.ReadResourceResult(
-                    contents=[{"type": "text", "content": "Spec data unavailable"}]
+            logger.warning("OpenAPI spec data missing, attempting to refetch")
+            openapi_spec_data = fetch_openapi_spec(openapi_url)
+            if not openapi_spec_data:
+                logger.error("Failed to refetch OpenAPI spec data")
+                return types.ServerResult(
+                    root=types.ReadResourceResult(
+                        contents=[{"type": "text", "content": "Spec data unavailable after refetch attempt"}]
+                    )
                 )
-            )
+            logger.info("Successfully refetched OpenAPI spec data")
         spec_json = json.dumps(openapi_spec_data, indent=2)
         logger.debug(f"Serving spec JSON: {spec_json[:50]}...")
+        # Simplify return to avoid MCP choking
         return types.ServerResult(
             root=types.ReadResourceResult(
-                contents=[{"type": "text", "content": spec_json}]
+                contents=[types.TextContent(type="text", text=spec_json)]
             )
         )
     except Exception as e:
         logger.error(f"Error reading resource: {e}", exc_info=True)
         return types.ServerResult(
             root=types.ReadResourceResult(
-                contents=[{"type": "text", "content": f"Resource error: {str(e)}"}]
+                contents=[types.TextContent(type="text", text=f"Resource error: {str(e)}")]
             )
         )
 
@@ -261,8 +277,7 @@ async def get_prompt(request: types.GetPromptRequest) -> types.ServerResult:
 
 def register_functions(spec: Dict) -> List[types.Tool]:
     """Register tools from OpenAPI spec, preserving across calls if already populated."""
-    global tools, openapi_spec_data
-    openapi_spec_data = spec
+    global tools
     logger.debug("Clearing previously registered tools to allow re-registration")
     tools.clear()
     tools = []
@@ -364,16 +379,6 @@ async def start_server():
 def run_server():
     global openapi_spec_data
     try:
-        openapi_url = os.getenv('OPENAPI_SPEC_URL')
-        if not openapi_url:
-            logger.critical("OPENAPI_SPEC_URL environment variable is required but not set.")
-            sys.exit(1)
-        openapi_spec_data = fetch_openapi_spec(openapi_url)
-        if not openapi_spec_data:
-            logger.critical("Failed to fetch or parse OpenAPI specification from OPENAPI_SPEC_URL.")
-            sys.exit(1)
-        logger.info("OpenAPI specification fetched successfully.")
-        logger.debug(f"Full OpenAPI spec: {json.dumps(openapi_spec_data, indent=2)}")
         register_functions(openapi_spec_data)
         logger.debug(f"Tools after registration: {[tool.name for tool in tools]}")
         if not tools:
