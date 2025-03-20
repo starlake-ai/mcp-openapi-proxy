@@ -91,12 +91,13 @@ Refer to the **Examples** section below for practical configurations tailored to
 - `API_KEY`: (Optional) Authentication token for the API, sent as `Bearer <API_KEY>` in the Authorization header by default.
 - `API_AUTH_TYPE`: (Optional) Overrides the default `Bearer` Authorization header type (e.g., `Api-Key` for GetZep).
 - `STRIP_PARAM`: (Optional) JMESPath expression to strip unwanted parameters (e.g., `token` for Slack).
+- `DEBUG`: (Optional) Enables verbose debug logging when set to "true", "1", or "yes".
+- `EXTRA_HEADERS`: (Optional) Additional HTTP headers in "Header: Value" format (one per line) to attach to outgoing API requests.
+- `SERVER_URL_OVERRIDE`: (Optional) Overrides the base URL from the OpenAPI specification when set, useful for custom deployments.
 
 ## Examples
 
 For testing, you can run the uvx command as demonstrated in the examples, then interact with the MCP server via JSON-RPC messages to list tools and resources. See the "JSON-RPC Testing" section below.
-
-This section provides examples to demonstrate configuration simplicity, authentication flexibility, and detailed tool generation.
 
 ### Glama Example
 
@@ -136,8 +137,9 @@ Start the service with:
 OPENAPI_SPEC_URL="https://glama.ai/api/mcp/openapi.json" uvx mcp-openapi-proxy
 ```
 Then refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
-  
+
 ---
+
 ### Fly.io Example
 
 ![image](https://github.com/user-attachments/assets/80abd7fa-ccca-4e35-b0dd-36ef82a236c5)
@@ -178,6 +180,7 @@ Update your MCP ecosystem configuration:
 After starting the service, refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
 
 ---
+
 ### Render Example
 
 ![image](https://github.com/user-attachments/assets/f1dee1bf-e330-41f1-a700-6386edd8895e)
@@ -219,6 +222,7 @@ OPENAPI_SPEC_URL="https://api-docs.render.com/openapi/6140fb3daeae351056086186" 
 After starting the service, refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
 
 ---
+
 ### Slack Example
 
 ![image](https://github.com/user-attachments/assets/706adad5-3f1c-4f32-aef5-6a1af794aef3)
@@ -270,6 +274,7 @@ Example tools in FastMCP mode:
 After starting the service, refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
 
 ---
+
 ### GetZep Example
 
 ![image](https://github.com/user-attachments/assets/9a4fdabb-fa3d-4626-a50f-438147eadc9f)
@@ -367,7 +372,6 @@ Then paste these follow-up messages:
 {"method":"resources/list","params":{},"jsonrpc":"2.0","id":1}
 {"method":"tools/list","params":{},"jsonrpc":"2.0","id":2}
 ```
-
 - **Missing OPENAPI_SPEC_URL:** Ensure it’s set to a valid OpenAPI JSON URL or local file path.
 - **Invalid Specification:** Verify the OpenAPI document is standard-compliant.
 - **Tool Filtering Issues:** Check `TOOL_WHITELIST` matches desired endpoints.
