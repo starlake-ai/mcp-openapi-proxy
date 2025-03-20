@@ -83,19 +83,19 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
         headers = handle_auth(operation)
         additional_headers = get_additional_headers()
         headers = {**headers, **additional_headers}
-        parameters = strip_parameters(arguments)
+        parameters = dict(strip_parameters(arguments))
         method = operation_details['method']
         if method != "GET":
             headers["Content-Type"] = "application/json"
 
         path = operation_details['path']
         if '{' in path and '}' in path:
-            for param_name, param_value in parameters.items():
+            for param_name in list(parameters.keys()):
+                param_value = parameters[param_name]
                 if f"{{{param_name}}}" in path:
                     path = path.replace(f"{{{param_name}}}", str(param_value))
                     logger.debug(f"Substituted {param_name}={param_value} in path: {path}")
-                    if param_name in parameters:
-                        del parameters[param_name]
+                    del parameters[param_name]
 
         base_url = build_base_url(openapi_spec_data)
         if not base_url:
