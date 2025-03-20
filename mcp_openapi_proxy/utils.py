@@ -56,16 +56,21 @@ def is_tool_whitelisted(endpoint: str) -> bool:
     if not whitelist:
         logger.debug("No TOOL_WHITELIST set, allowing all endpoints.")
         return True
+    import re
     whitelist_entries = [entry.strip() for entry in whitelist.split(",")]
     for entry in whitelist_entries:
-        if "{" in entry:  # Handle placeholders
-            base_entry = entry.split("{")[0]
-            if endpoint.startswith(base_entry):
-                logger.debug(f"Endpoint {endpoint} matches whitelist entry {entry} with placeholder")
+        if "{" in entry:
+            # Build a regex pattern from the whitelist entry by replacing placeholders with a non-empty segment match ([^/]+)
+            pattern = re.escape(entry)
+            pattern = re.sub(r"\\\{[^\\\}]+\\\}", r"([^/]+)", pattern)
+            pattern = "^" + pattern + "($|/.*)$"
+            if re.match(pattern, endpoint):
+                logger.debug(f"Endpoint {endpoint} matches whitelist entry {entry} using regex {pattern}")
                 return True
-        elif entry in endpoint:
-            logger.debug(f"Endpoint {endpoint} matches whitelist entry {entry}")
-            return True
+        else:
+            if endpoint.startswith(entry):
+                logger.debug(f"Endpoint {endpoint} matches whitelist entry {entry}")
+                return True
     logger.debug(f"Endpoint {endpoint} not in whitelist - skipping.")
     return False
 
