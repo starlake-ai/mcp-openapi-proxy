@@ -18,7 +18,7 @@ import requests
 from typing import Dict, Any
 from mcp import types
 from mcp.server.fastmcp import FastMCP
-from mcp_openapi_proxy.utils import setup_logging, is_tool_whitelisted, fetch_openapi_spec, build_base_url, normalize_tool_name, handle_auth, strip_parameters, get_tool_prefix
+from mcp_openapi_proxy.utils import setup_logging, is_tool_whitelisted, fetch_openapi_spec, build_base_url, normalize_tool_name, handle_auth, strip_parameters, get_tool_prefix, get_additional_headers
 
 logger = setup_logging(debug=os.getenv("DEBUG", "").lower() in ("true", "1", "yes"))
 
@@ -30,9 +30,9 @@ mcp = FastMCP("OpenApiProxy-Fast")
 spec = None  # Global spec for resources
 
 @mcp.tool()
-def list_tools(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
-    """Lists available tools derived from the OpenAPI specification."""
-    logger.debug("Executing list_tools tool.")
+def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
+    """Lists available functions derived from the OpenAPI specification."""
+    logger.debug("Executing list_functions tool.")
     spec_url = os.environ.get(env_key, os.environ.get("OPENAPI_SPEC_URL"))
     whitelist = os.getenv('TOOL_WHITELIST')
     logger.debug(f"Using spec_url: {spec_url}")
@@ -69,14 +69,14 @@ def list_tools(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
                 logger.debug(f"Method is empty for {path}")
                 continue
             if method.lower() not in ["get", "post", "put", "delete", "patch"]:
-                logger.debug(f"Method {method} not supported for {path} - skipping.")
+                logger.debug(f"Skipping unsupported method: {method}")
                 continue
             raw_name = f"{method.upper()} {path}"
             function_name = normalize_tool_name(raw_name)
             if prefix:
                 function_name = f"{prefix}{function_name}"
             if function_name in functions:
-                logger.debug(f"Skipping duplicate tool name: {function_name}")
+                logger.debug(f"Skipping duplicate function name: {function_name}")
                 continue
             function_description = operation.get("summary", operation.get("description", "No description provided."))
             logger.debug(f"Registering function: {function_name} - {function_description}")
@@ -86,7 +86,6 @@ def list_tools(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
                 "required": [],
                 "additionalProperties": False
             }
-            # Handle URI placeholders
             placeholder_params = [part.strip('{}') for part in path.split('/') if '{' in part and '}' in part]
             for param_name in placeholder_params:
                 input_schema['properties'][param_name] = {
@@ -94,8 +93,6 @@ def list_tools(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
                     "description": f"Path parameter {param_name}"
                 }
                 input_schema['required'].append(param_name)
-                logger.debug(f"Added URI placeholder {param_name} to inputSchema for {function_name}")
-            # Add query/path params from spec
             for param in operation.get("parameters", []):
                 param_name = param.get("name")
                 param_type = param.get("type", "string")
@@ -116,7 +113,6 @@ def list_tools(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
                 "original_name": raw_name,
                 "inputSchema": input_schema
             }
-    # Add resource tools
     functions["list_resources"] = {
         "name": "list_resources",
         "description": "List available resources",
@@ -135,7 +131,6 @@ def list_tools(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
         "original_name": "read_resource",
         "inputSchema": {"type": "object", "properties": {"uri": {"type": "string", "description": "Resource URI"}}, "required": ["uri"], "additionalProperties": False}
     }
-    # Add prompt tools
     functions["list_prompts"] = {
         "name": "list_prompts",
         "description": "List available prompts",
@@ -154,8 +149,8 @@ def list_tools(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
         "original_name": "get_prompt",
         "inputSchema": {"type": "object", "properties": {"name": {"type": "string", "description": "Prompt name"}}, "required": ["name"], "additionalProperties": False}
     }
-    logger.info(f"Discovered {len(functions)} tools from the OpenAPI specification.")
-    logger.debug(f"Tools list: {list(functions.values())}")
+    logger.info(f"Discovered {len(functions)} functions from the OpenAPI specification.")
+    logger.debug(f"Functions list: {list(functions.values())}")
     return json.dumps(list(functions.values()), indent=2)
 
 @mcp.tool()
@@ -233,7 +228,8 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
     headers = handle_auth(operation)
     additional_headers = get_additional_headers()
     headers = {**headers, **additional_headers}
-    parameters = strip_parameters(parameters)
+    parameters = strip_parameters(parameters) or {}
+    logger.debug(f"Parameters after strip: {parameters}")
     if function_def["method"] != "GET":
         headers["Content-Type"] = "application/json"
 
@@ -247,14 +243,31 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
         return json.dumps({"error": "No base URL defined in spec or SERVER_URL_OVERRIDE"})
 
     path = function_def["path"]
-    # Substitute URI placeholders
+    # Check required path params before substitution
+    path_params_in_openapi = [
+        param["name"] for param in operation.get("parameters", []) if param.get("in") == "path"
+    ]
+    if path_params_in_openapi:
+        missing_required = [
+            param["name"] for param in operation.get("parameters", [])
+            if param.get("in") == "path" and param.get("required", False) and param["name"] not in parameters
+        ]
+        if missing_required:
+            logger.error(f"Missing required path parameters: {missing_required}")
+            return json.dumps({"error": f"Missing required path parameters: {missing_required}"})
+
     if '{' in path and '}' in path:
+        params_to_remove = []
+        logger.debug(f"Before substitution - Path: {path}, Parameters: {parameters}")
         for param_name, param_value in parameters.items():
             if f"{{{param_name}}}" in path:
                 path = path.replace(f"{{{param_name}}}", str(param_value))
                 logger.debug(f"Substituted {param_name}={param_value} in path: {path}")
-                if param_name in parameters:
-                    del parameters[param_name]  # Remove used path param
+                params_to_remove.append(param_name)
+        for param_name in params_to_remove:
+            if param_name in parameters:
+                del parameters[param_name]
+        logger.debug(f"After substitution - Path: {path}, Parameters: {parameters}")
 
     api_url = f"{base_url.rstrip('/')}/{path.lstrip('/')}"
     request_params = {}
@@ -263,17 +276,6 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
     if isinstance(parameters, dict):
         if "stream" in parameters and parameters["stream"]:
             del parameters["stream"]
-        path_params_in_openapi = [
-            param["name"] for param in operation.get("parameters", []) if param.get("in") == "path"
-        ]
-        if path_params_in_openapi:
-            missing_required = [
-                param["name"] for param in operation.get("parameters", [])
-                if param.get("in") == "path" and param.get("required", False) and param["name"] not in parameters
-            ]
-            if missing_required:
-                logger.error(f"Missing required path parameters: {missing_required}")
-                return json.dumps({"error": f"Missing required path parameters: {missing_required}"})
         if function_def["method"] == "GET":
             request_params = parameters
         else:
@@ -306,13 +308,13 @@ def run_simple_server():
         logger.error("OPENAPI_SPEC_URL environment variable is required for FastMCP mode.")
         sys.exit(1)
 
-    logger.debug("Preloading tools from OpenAPI spec...")
+    logger.debug("Preloading functions from OpenAPI spec...")
     global spec
     spec = fetch_openapi_spec(spec_url)
     if spec is None:
-        logger.error("Failed to fetch OpenAPI spec, no tools to preload.")
+        logger.error("Failed to fetch OpenAPI spec, no functions to preload.")
         sys.exit(1)
-    list_tools()
+    list_functions()
 
     try:
         logger.debug("Starting MCP server (FastMCP version)...")
