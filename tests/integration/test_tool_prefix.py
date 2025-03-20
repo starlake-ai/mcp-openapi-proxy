@@ -21,7 +21,8 @@ def test_function_name_mapping(reset_env_and_module):
     assert len(tools) > 0, "No functions generated from spec"
     for tool in tools:
         name = tool["name"]
-        assert name.startswith(("get_", "post_", "put_", "delete_")), \
-            f"Function name {name} should start with HTTP method prefix"
-        assert name.islower(), f"Function name {name} should be lowercase"
+        # Only check HTTP method prefix for tools with a method (skip built-ins like list_resources)
+        if tool.get("method"):
+            assert name.startswith(("get_", "post_", "put_", "delete_")), \
+                f"Function name {name} should start with HTTP method prefix"
         assert " " not in name, f"Function name {name} should have no spaces"

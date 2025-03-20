@@ -1,16 +1,20 @@
+"""
+Unit tests for utility functions in mcp-openapi-proxy.
+"""
+
 import os
 import pytest
 from mcp_openapi_proxy.utils import normalize_tool_name, detect_response_type, build_base_url, handle_auth, strip_parameters
 
 def test_normalize_tool_name():
     assert normalize_tool_name("GET /api/v2/users") == "get_users"
-    assert normalize_tool_name("POST /users/{id}") == "post_users"
+    assert normalize_tool_name("POST /users/{id}") == "post_users_id"
     assert normalize_tool_name("INVALID") == "unknown_tool"
 
 def test_detect_response_type_json():
     content, msg = detect_response_type('{"key": "value"}')
     assert content.type == "text"
-    assert content.text == '{"text": "{\\"key\\": \\"value\\"}"}'  # Match exact wrapped output, ya grub!
+    assert content.text == '{"text": "{\\"key\\": \\"value\\"}"}'
     assert "JSON" in msg
 
 def test_detect_response_type_text():

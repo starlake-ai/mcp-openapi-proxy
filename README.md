@@ -19,6 +19,7 @@
   - [Slack Example](#slack-example)
   - [GetZep Example](#getzep-example)
   - [Notion Example](#notion-example)
+  - [Asana Example](#asana-example)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
 
@@ -26,8 +27,8 @@
 
 The package offers two operational modes:
 
-- **Low-Level Mode (Default):** Dynamically registers tools corresponding to all API endpoints specified in an OpenAPI document (e.g. `/chat/completions` becomes `chat_completions()`).
-- **FastMCP Mode (Simple Mode):** Provides a streamlined approach exposing a predefined set of tools (e.g. `list_functions()` and `call_function()`) based on static configurations.
+- **Low-Level Mode (Default):** Dynamically registers tools corresponding to all valid API endpoints specified in an OpenAPI document (e.g. `/chat/completions` becomes `chat_completions()`).
+- **FastMCP Mode (Simple Mode):** Provides a streamlined approach by exposing a predefined set of tools (e.g. `list_functions()` and `call_function()`) based on static configurations.
 
 ## Features
 
@@ -36,7 +37,7 @@ The package offers two operational modes:
 - **OpenAPI Specification Support:** Compatible with OpenAPI v3 with potential support for v2.
 - **Flexible Filtering:** Allows endpoint filtering through whitelisting by paths or other criteria.
 - **Payload Authentication:** Supports custom authentication via JMESPath expressions (e.g. for APIs like Slack that expect tokens in the payload not the HTTP header).
-- **Header Authentication:** Uses `Bearer` by default for `API_KEY` in the Authorization header customizable for APIs like Fly.io requiring `Api-Key`.
+- **Header Authentication:** Uses `Bearer` by default for `API_KEY` in the Authorization header, customizable for APIs like Fly.io requiring `Api-Key`.
 - **MCP Integration:** Seamlessly integrates with MCP ecosystems for invoking REST APIs as tools.
 
 ## Installation
@@ -110,14 +111,17 @@ Glama offers the most minimal configuration for mcp-openapi-proxy requiring only
 #### 1. Verify the OpenAPI Specification
 
 Retrieve the Glama OpenAPI specification:
+
 ```bash
 curl https://glama.ai/api/mcp/openapi.json
 ```
+
 Ensure the response is a valid OpenAPI JSON document.
 
 #### 2. Configure mcp-openapi-proxy for Glama
 
 Add the following configuration to your MCP ecosystem settings:
+
 ```json
 {
     "mcpServers": {
@@ -135,12 +139,12 @@ Add the following configuration to your MCP ecosystem settings:
 #### 3. Testing
 
 Start the service with:
+
 ```bash
 OPENAPI_SPEC_URL="https://glama.ai/api/mcp/openapi.json" uvx mcp-openapi-proxy
 ```
-Then refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
 
----
+Then refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
 
 ### Fly.io Example
 
@@ -151,14 +155,17 @@ Fly.io provides a simple API for managing machines making it an ideal starting p
 #### 1. Verify the OpenAPI Specification
 
 Retrieve the Fly.io OpenAPI specification:
+
 ```bash
 curl https://raw.githubusercontent.com/abhiaagarwal/peristera/refs/heads/main/fly-machines-gen/fixed_spec.json
 ```
+
 Ensure the response is a valid OpenAPI JSON document.
 
 #### 2. Configure mcp-openapi-proxy for Fly.io
 
 Update your MCP ecosystem configuration:
+
 ```json
 {
     "mcpServers": {
@@ -173,6 +180,7 @@ Update your MCP ecosystem configuration:
     }
 }
 ```
+
 - **OPENAPI_SPEC_URL**: Points to the Fly.io OpenAPI specification.
 - **API_KEY**: Your Fly.io API token (replace `<your_flyio_token_here>`).
 - **API_AUTH_TYPE**: Set to `Api-Key` for Fly.io’s header-based authentication (overrides default `Bearer`).
@@ -181,24 +189,26 @@ Update your MCP ecosystem configuration:
 
 After starting the service refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
 
----
-
 ### Render Example
 
 ![image](https://github.com/user-attachments/assets/f1dee1bf-e330-41f1-a700-6386edd8895e)
 
 Render offers infrastructure hosting that can be managed via an API. The provided configuration file `examples/render-claude_desktop_config.json` demonstrates how to set up your MCP ecosystem quickly with minimal settings.
 
-#### 1. Verify the Configuration File
+#### 1. Verify the OpenAPI Specification
 
-Inspect the configuration file to ensure it meets your deployment needs. For example run the following command:
+Retrieve the Render OpenAPI specification:
+
 ```bash
-cat examples/render-claude_desktop_config.json
+curl https://api-docs.render.com/openapi/6140fb3daeae351056086186
 ```
+
+Ensure the response is a valid OpenAPI document.
 
 #### 2. Configure mcp-openapi-proxy for Render
 
-Add the following configuration to your MCP ecosystem settings (typically in your MCP settings file):
+Add the following configuration to your MCP ecosystem settings:
+
 ```json
 {
     "mcpServers": {
@@ -218,12 +228,12 @@ Add the following configuration to your MCP ecosystem settings (typically in you
 #### 3. Testing
 
 Launch the proxy with your Render configuration:
+
 ```bash
 OPENAPI_SPEC_URL="https://api-docs.render.com/openapi/6140fb3daeae351056086186" TOOL_WHITELIST="/services,/maintenance" API_KEY="your_render_token_here" uvx mcp-openapi-proxy
 ```
-After starting the service refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
 
----
+After starting the service refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
 
 ### Slack Example
 
@@ -234,14 +244,17 @@ Slack’s API showcases stripping unnecessary token payload using JMESPath. Obta
 #### 1. Verify the OpenAPI Specification
 
 Retrieve the Slack OpenAPI specification:
+
 ```bash
 curl https://raw.githubusercontent.com/slackapi/slack-api-specs/master/web-api/slack_web_openapi_v2.json
 ```
+
 Ensure it’s a valid OpenAPI JSON document.
 
 #### 2. Configure mcp-openapi-proxy for Slack
 
 Update your configuration:
+
 ```json
 {
     "mcpServers": {
@@ -252,22 +265,24 @@ Update your configuration:
                 "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/slackapi/slack-api-specs/master/web-api/slack_web_openapi_v2.json",
                 "TOOL_WHITELIST": "/chat,/bots,/conversations,/reminders,/files,/users",
                 "API_KEY": "<your_slack_bot_token, starts with xoxb>",
-                "STRIP_PARAM": "token"
+                "STRIP_PARAM": "token",
+                "TOOL_NAME_PREFIX": "slack_"
             }
         }
     }
 }
 ```
+
 - **OPENAPI_SPEC_URL**: Slack’s OpenAPI spec URL.
 - **TOOL_WHITELIST**: Limits tools to useful endpoint groups (e.g. chat, conversations, users).
-- **API_KEY**: Your Slack bot token (e.g. `xoxb-...`—replace `<your_slack_bot_token>`).
-- **STRIP_PARAM**: Removes the token field from the request payload as this is handled by the HTTP Header.
+- **API_KEY**: Your Slack bot token (e.g. `xoxb-...`, replace `<your_slack_bot_token>`).
+- **STRIP_PARAM**: Removes the token field from the request payload (as it is handled in the HTTP header).
 - **TOOL_NAME_PREFIX**: Prepends `slack_` to tool names (e.g. `slack_get_users_info`).
 
-#### 3. Resulting Tools
+#### 3. Resulting Functions
 
-Example tools in FastMCP mode:
-- `slack_get_users_info`: Retrieves user info (e.g. for `USLACKBOT`).
+Example functions in FastMCP mode:
+- `slack_get_users_info`: Retrieves user info.
 - `slack_get_conversations_list`: Lists channels in the workspace.
 - `slack_post_chat_postmessage`: Posts a message to a channel.
 
@@ -275,25 +290,26 @@ Example tools in FastMCP mode:
 
 After starting the service refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
 
----
-
 ### GetZep Example
 
 ![image](https://github.com/user-attachments/assets/9a4fdabb-fa3d-4626-a50f-438147eadc9f)
 
-GetZep offers a free cloud API for memory management with detailed endpoints. Since GetZep did not provide an official OpenAPI specification this project includes a generated spec hosted on GitHub for convenience. This approach—creating a spec from documentation—is a reusable pattern: users can similarly generate OpenAPI specs for any REST API and reference them locally (e.g. `file:///path/to/spec.json`). Obtain an API key from [GetZep's documentation](https://docs.getzep.com/).
+GetZep offers a free cloud API for memory management with detailed endpoints. Since GetZep did not provide an official OpenAPI specification, this project includes a generated spec hosted on GitHub for convenience. Users can similarly generate OpenAPI specs for any REST API and reference them locally (e.g. `file:///path/to/spec.json`). Obtain an API key from [GetZep's documentation](https://docs.getzep.com/).
 
 #### 1. Verify the OpenAPI Specification
 
 Retrieve the project-provided GetZep OpenAPI specification:
+
 ```bash
 curl https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/getzep.swagger.json
 ```
-Ensure it’s a valid OpenAPI JSON document. Alternatively generate your own spec and use `file://` to point to a local file.
+
+Ensure it’s a valid OpenAPI JSON document. Alternatively, generate your own spec and use a `file://` URL to reference a local file.
 
 #### 2. Configure mcp-openapi-proxy for GetZep
 
 Update your configuration:
+
 ```json
 {
     "mcpServers": {
@@ -311,71 +327,41 @@ Update your configuration:
     }
 }
 ```
+
 - **OPENAPI_SPEC_URL**: Points to the project-provided GetZep Swagger spec (or use `file:///path/to/your/spec.json` for a local file).
 - **TOOL_WHITELIST**: Limits to `/sessions` endpoints.
 - **API_KEY**: Your GetZep API key.
 - **API_AUTH_TYPE**: Uses `Api-Key` for header-based authentication (overrides default `Bearer`).
-- **TOOL_NAME_PREFIX**: Prepends `getzep_` to tools.
+- **TOOL_NAME_PREFIX**: Prepends `getzep_` to tool names.
 
-#### 3. Resulting Tools
+#### 3. Resulting Functions
 
-Example tools:
+Example functions:
 - `getzep_post_sessions`: Adds a session.
 - `getzep_get_sessions_memory`: Retrieves session memory.
-
-Full list (abbreviated):
-```json
-{
-  "tools": [
-    {
-      "name": "getzep_post_sessions",
-      "description": "Add Session",
-      "inputSchema": {"type": "object", "properties": {}, "required": []}
-    },
-    {
-      "name": "getzep_get_sessions_memory",
-      "description": "Get Session Memory",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "sessionId": {"type": "string", "description": "ID of the session"},
-          "lastn": {"type": "integer", "description": "Number of recent entries"}
-        },
-        "required": ["sessionId"]
-      }
-    }
-  ]
-}
-```
 
 #### 4. Testing
 
 After starting the service refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
-```bash
-OPENAPI_SPEC_URL="file:///path/to/your/getzep.swagger.json" API_KEY="<your_getzep_api_key>" API_AUTH_TYPE="Api-Key" uvx mcp-openapi-proxy
-```
-
----
 
 ### Notion Example
 
-This new example demonstrates how to use the `EXTRA_HEADERS` environment variable to include custom HTTP headers required by the Notion API. In this configuration:
+Notion’s API requires specifying a particular version via HTTP headers. This example uses the `EXTRA_HEADERS` environment variable to include the required header, and focuses on verifying the OpenAPI specification.
 
-- **API_KEY** is set as `ntn_<your_key>`.
-- **OPENAPI_SPEC_URL** points to a YAML specification for the Notion API.
-- **SERVER_URL_OVERRIDE** is used to override the base URL to `https://api.notion.com`.
-- **EXTRA_HEADERS** is set to `Notion-Version: 2022-06-28`, which instructs the API to use a specific version of Notion's API.
+#### 1. Verify the OpenAPI Specification
 
-#### 1. Verify the Configuration File
+Retrieve the Notion OpenAPI specification:
 
-Inspect the provided configuration file:
 ```bash
-cat examples/notion-claude_desktop_config.json
+curl https://storage.googleapis.com/versori-assets/public-specs/20240214/NotionAPI.yml
 ```
+
+Ensure the response is a valid YAML document.
 
 #### 2. Configure mcp-openapi-proxy for Notion
 
-A sample configuration for Notion is as follows:
+Add the following configuration to your MCP ecosystem settings:
+
 ```json
 {
   "mcpServers": {
@@ -394,42 +380,96 @@ A sample configuration for Notion is as follows:
   }
 }
 ```
-- **EXTRA_HEADERS**: Demonstrates adding the header `Notion-Version: 2022-06-28` required by the Notion API.
-- **SERVER_URL_OVERRIDE**: Ensures that API calls are directed to `https://api.notion.com`.
 
 #### 3. Testing
 
 Launch the proxy with the Notion configuration:
+
 ```bash
 OPENAPI_SPEC_URL="https://storage.googleapis.com/versori-assets/public-specs/20240214/NotionAPI.yml" SERVER_URL_OVERRIDE="https://api.notion.com" EXTRA_HEADERS="Notion-Version: 2022-06-28" API_KEY="ntn_<your_key>" uvx mcp-openapi-proxy
 ```
-After starting the service refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
+
+After starting the service, refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
+
+### Asana Example
+
+Asana provides a rich set of endpoints for managing workspaces, tasks, projects, and users. The integration tests demonstrate usage of endpoints such as `GET /workspaces`, `GET /tasks`, and `GET /projects`.
+
+#### 1. Verify the OpenAPI Specification
+
+Retrieve the Asana OpenAPI specification:
+
+```bash
+curl https://raw.githubusercontent.com/Asana/openapi/refs/heads/master/defs/asana_oas.yaml
+```
+
+Ensure the response is a valid YAML (or JSON) document.
+
+#### 2. Configure mcp-openapi-proxy for Asana
+
+Add the following configuration to your MCP ecosystem settings:
+
+```json
+{
+  "mcpServers": {
+    "asana": {
+      "command": "uvx",
+      "args": [
+        "mcp-openapi-proxy"
+      ],
+      "env": {
+        "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/Asana/openapi/refs/heads/master/defs/asana_oas.yaml",
+        "SERVER_URL_OVERRIDE": "https://app.asana.com/api/1.0",
+        "TOOL_WHITELIST": "/workspaces,/tasks,/projects,/users",
+        "API_KEY": "${ASANA_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+#### 3. Testing
+
+Before running integration tests, ensure you have a valid `ASANA_API_KEY` set in your environment (e.g. in your .env file). Then start the proxy with:
+
+```bash
+ASANA_API_KEY="<your_asana_api_key>" uvx mcp-openapi-proxy
+```
+
+Use MCP tools (via JSON-RPC messages or client libraries) to interact with the Asana endpoints, such as listing workspaces, tasks, and projects, as demonstrated in the integration tests.
 
 ## Troubleshooting
 
 ### JSON-RPC Testing
 
-For alternative testing you can interact with the MCP server via JSON-RPC. After starting the server paste the following initialization message:
+For alternative testing you can interact with the MCP server via JSON-RPC. After starting the server, paste the following initialization message:
+
 ```json
 {"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"claude-ai","version":"0.1.0"}},"jsonrpc":"2.0","id":0}
 ```
+
 Expected response:
+
 ```json
 {"jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2024-11-05","capabilities":{"experimental":{},"prompts":{"listChanged":false},"resources":{"subscribe":false,"listChanged":false},"tools":{"listChanged":false}},"serverInfo":{"name":"sqlite","version":"0.1.0"}}}
 ```
 
 Then paste these follow-up messages:
+
 ```json
 {"method":"notifications/initialized","jsonrpc":"2.0"}
 {"method":"resources/list","params":{},"jsonrpc":"2.0","id":1}
 {"method":"tools/list","params":{},"jsonrpc":"2.0","id":2}
 ```
-- **Missing OPENAPI_SPEC_URL:** Ensure it’s set to a valid OpenAPI JSON URL or local file path.
-- **Invalid Specification:** Verify the OpenAPI document is standard-compliant.
-- **Tool Filtering Issues:** Check `TOOL_WHITELIST` matches desired endpoints.
-- **Authentication Errors:** Confirm `API_KEY` and `API_AUTH_TYPE` are correct.
-- **Logging:** Set `DEBUG=true` for detailed output to stderr.
-- **Test Server:** Run directly:
+
+- **Missing OPENAPI_SPEC_URL:** Ensure it’s set to a valid OpenAPI URL or local file path.
+- **Invalid Specification:** Verify that the OpenAPI document meets standards.
+- **Tool Filtering Issues:** Check that `TOOL_WHITELIST` matches the desired endpoints.
+- **Authentication Errors:** Confirm that `API_KEY` and `API_AUTH_TYPE` are configured correctly.
+- **Logging:** Set `DEBUG=true` for detailed logs.
+
+To run the server directly:
+
 ```bash
 uvx mcp-openapi-proxy
 ```

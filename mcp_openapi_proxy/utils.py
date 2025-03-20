@@ -12,7 +12,6 @@ import jmespath
 from typing import Dict, Optional, Tuple
 from mcp import types
 
-# Global logger - initialized in setup_logging
 logger = None
 
 def setup_logging(debug: bool = False) -> logging.Logger:
@@ -33,9 +32,13 @@ def normalize_tool_name(raw_name: str) -> str:
     try:
         method, path = raw_name.split(" ", 1)
         method = method.lower()
+        # Take only the last meaningful part, skip prefixes like /api/v*
         path_parts = [part for part in path.split("/") if part and not part.startswith("{")]
-        name = "_".join([method] + path_parts)
-        if "{" in path:  # If path has parameters, append '_id' to distinguish
+        if not path_parts:
+            return "unknown_tool"
+        last_part = path_parts[-1].lower()  # Force lowercase
+        name = f"{method}_{last_part}"
+        if "{" in path:
             name += "_id"
         return name if name else "unknown_tool"
     except ValueError:
@@ -55,34 +58,49 @@ def is_tool_whitelisted(endpoint: str) -> bool:
         return True
     whitelist_entries = [entry.strip() for entry in whitelist.split(",")]
     for entry in whitelist_entries:
-        if entry in endpoint:
+        if "{" in entry:  # Handle placeholders
+            base_entry = entry.split("{")[0]
+            if endpoint.startswith(base_entry):
+                logger.debug(f"Endpoint {endpoint} matches whitelist entry {entry} with placeholder")
+                return True
+        elif entry in endpoint:
             logger.debug(f"Endpoint {endpoint} matches whitelist entry {entry}")
             return True
     logger.debug(f"Endpoint {endpoint} not in whitelist - skipping.")
     return False
 
-def fetch_openapi_spec(url: str) -> Optional[Dict]:
-    """Fetch and parse an OpenAPI specification from a URL."""
-    logger.debug(f"OpenAPI Spec URL: {url}")
-    try:
-        if url.startswith("file://"):
-            with open(url[7:], "r") as f:
-                content = f.read()
-        else:
-            response = requests.get(url, timeout=10)
-            response.raise_for_status()
-            logger.debug(f"Fetched OpenAPI spec from {url}")
-            content = response.text
+def fetch_openapi_spec(url: str, retries: int = 3) -> Optional[Dict]:
+    """Fetch and parse an OpenAPI specification from a URL with retries."""
+    logger.debug(f"Fetching OpenAPI spec from URL: {url}")
+    attempt = 0
+    while attempt < retries:
         try:
-            spec = json.loads(content)
-            logger.debug(f"Parsed JSON OpenAPI spec from {url} (no suffix assumed JSON)")
-        except json.JSONDecodeError:
-            spec = yaml.safe_load(content)
-            logger.debug(f"Parsed YAML OpenAPI spec from {url}")
-        return spec
-    except Exception as e:
-        logger.error(f"Failed to fetch or parse OpenAPI spec from {url}: {e}", exc_info=True)
-        return None
+            if url.startswith("file://"):
+                with open(url[7:], "r") as f:
+                    content = f.read()
+            else:
+                response = requests.get(url, timeout=10)
+                response.raise_for_status()
+                content = response.text
+            logger.debug(f"Fetched content length: {len(content)} bytes")
+            try:
+                spec = json.loads(content)
+                logger.debug(f"Parsed as JSON from {url}")
+            except json.JSONDecodeError:
+                try:
+                    spec = yaml.safe_load(content)
+                    logger.debug(f"Parsed as YAML from {url}")
+                except yaml.YAMLError as ye:
+                    logger.error(f"YAML parsing failed: {ye}. Raw content: {content[:500]}...")
+                    return None
+            return spec
+        except requests.RequestException as e:
+            attempt += 1
+            logger.warning(f"Fetch attempt {attempt}/{retries} failed: {e}")
+            if attempt == retries:
+                logger.error(f"Failed to fetch spec from {url} after {retries} attempts: {e}")
+                return None
+    return None
 
 def build_base_url(spec: Dict) -> Optional[str]:
     """Construct the base URL from the OpenAPI spec or override."""
