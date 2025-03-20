@@ -37,12 +37,12 @@ def test_fly_machines_get_apps(reset_env_and_module):
     os.environ["API_AUTH_TYPE"] = "Bearer"
     os.environ["DEBUG"] = "true"
 
-    print("DEBUG: Listing tools")
+    print("DEBUG: Listing functions")
     tools_json = list_functions(env_key=env_key)
     tools = json.loads(tools_json)
     assert isinstance(tools, list), "list_functions returned invalid data (not a list)"
-    assert len(tools) > 0, f"No tools generated from Fly spec: {tools_json}"
-    assert any(tool["name"] == "get_apps" for tool in tools), "get_apps tool not found in tools"
+    assert len(tools) > 0, f"No functions generated from Fly spec: {tools_json}"
+    assert any(tool["name"] == "get_apps" for tool in tools), "get_apps function not found in functions"
 
     org_slug = "personal"  # Works in yer client, ya clever sod
     print(f"DEBUG: Calling get_apps with org_slug={org_slug}")
