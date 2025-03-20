@@ -1,5 +1,5 @@
 """
-Integration tests for Slack API via mcp-openapi-proxy, low-level mode.
+Integration tests for Slack API via mcp-openapi-proxy, FastMCP mode.
 Needs SLACK_SPEC_URL and SLACK_API_KEY in .env for testing.
 TEST_SLACK_CHANNEL optional for posting messages.
 """
@@ -11,7 +11,6 @@ from dotenv import load_dotenv
 from mcp_openapi_proxy.utils import fetch_openapi_spec
 from mcp_openapi_proxy.server_fastmcp import mcp, list_functions, call_function
 
-# Load .env file
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '../../.env'))
 
 @pytest.mark.integration
@@ -26,7 +25,6 @@ def test_slack_users_info(reset_env_and_module):
         print("🍻 DEBUG: Skipping due to missing or invalid SLACK_API_KEY")
         pytest.skip("SLACK_API_KEY missing or placeholder—please configure it!")
 
-    # Fetch the specification
     print(f"🍆 DEBUG: Fetching spec from {spec_url}")
     spec = fetch_openapi_spec(spec_url)
     assert spec, f"Failed to fetch spec from {spec_url}"
@@ -34,26 +32,23 @@ def test_slack_users_info(reset_env_and_module):
     assert "/users.info" in spec["paths"], "No /users.info endpoint in spec"
     assert "servers" in spec or "host" in spec, "No servers or host defined in spec"
 
-    # Set environment variables—use SLACK_API_KEY for testing
     os.environ[env_key] = spec_url
     os.environ["SLACK_API_KEY"] = slack_api_key
-    os.environ["API_KEY"] = slack_api_key  # Set it anyway for prod consistency
+    os.environ["API_KEY"] = slack_api_key
     os.environ["API_KEY_JMESPATH"] = "token"
     os.environ["TOOL_NAME_PREFIX"] = tool_prefix
     os.environ["TOOL_WHITELIST"] = "/chat,/bots,/conversations,/reminders,/files,/users"
     os.environ["DEBUG"] = "true"
     print(f"🍍 DEBUG: API_KEY set to: {os.environ['API_KEY']}")
 
-    # Verify tools
-    print("🍑 DEBUG: Listing available tools")
+    print("🍑 DEBUG: Listing available functions")
     tools_json = list_functions(env_key=env_key)
     tools = json.loads(tools_json)
-    assert isinstance(tools, list), f"Tools response is not a list: {tools_json}"
-    assert tools, f"No tools generated: {tools_json}"
+    assert isinstance(tools, list), f"Functions response is not a list: {tools_json}"
+    assert tools, f"No functions generated: {tools_json}"
     tool_name = f"{tool_prefix}get_users_info"
-    assert any(t["name"] == tool_name for t in tools), f"Tool {tool_name} not found"
+    assert any(t["name"] == tool_name for t in tools), f"Function {tool_name} not found"
 
-    # Send request
     print("🍌 DEBUG: Calling users.info for Slackbot")
     response_json = call_function(
         function_name=tool_name,
@@ -93,7 +88,7 @@ def test_slack_conversations_list(reset_env_and_module):
 
     os.environ[env_key] = spec_url
     os.environ["SLACK_API_KEY"] = slack_api_key
-    os.environ["API_KEY"] = slack_api_key  # Set for prod, but test uses SLACK_API_KEY
+    os.environ["API_KEY"] = slack_api_key
     os.environ["API_KEY_JMESPATH"] = "token"
     os.environ["TOOL_NAME_PREFIX"] = tool_prefix
     os.environ["DEBUG"] = "true"
@@ -102,7 +97,7 @@ def test_slack_conversations_list(reset_env_and_module):
     tool_name = f"{tool_prefix}get_conversations_list"
     tools_json = list_functions(env_key=env_key)
     tools = json.loads(tools_json)
-    assert any(t["name"] == tool_name for t in tools), f"Tool {tool_name} not found"
+    assert any(t["name"] == tool_name for t in tools), f"Function {tool_name} not found"
 
     response_json = call_function(
         function_name=tool_name,
@@ -117,7 +112,7 @@ def test_slack_conversations_list(reset_env_and_module):
     assert channels, "No channels returned in response"
     channel_ids = [ch["id"] for ch in channels]
     assert channel_ids, "Failed to extract channel IDs from response"
-    return channel_ids  # Needed for post_message test
+    return channel_ids
 
 @pytest.mark.integration
 def test_slack_post_message(reset_env_and_module):
@@ -138,7 +133,7 @@ def test_slack_post_message(reset_env_and_module):
 
     os.environ[env_key] = spec_url
     os.environ["SLACK_API_KEY"] = slack_api_key
-    os.environ["API_KEY"] = slack_api_key  # Set for prod, but test uses SLACK_API_KEY
+    os.environ["API_KEY"] = slack_api_key
     os.environ["API_KEY_JMESPATH"] = "token"
     os.environ["TOOL_NAME_PREFIX"] = tool_prefix
     os.environ["DEBUG"] = "true"
