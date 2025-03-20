@@ -63,14 +63,21 @@ async def test_lowlevel_dispatcher_with_headers(mock_env, mock_requests, monkeyp
     monkeypatch.setattr("mcp_openapi_proxy.server_lowlevel.openapi_spec_data", DUMMY_SPEC)
     tools.append(SimpleNamespace(name="get_test", inputSchema={"type": "object", "properties": {}}))
     request = SimpleNamespace(params=SimpleNamespace(name="get_test", arguments={}))
-    with patch('mcp_openapi_proxy.utils.fetch_openapi_spec', return_value=DUMMY_SPEC):
+    with patch('mcp_openapi_proxy.server_fastmcp.fetch_openapi_spec', return_value=DUMMY_SPEC):
         result = await dispatcher_handler(request)
     assert result.root.content[0].text == "Mocked response", "Dispatcher failed with headers"
 
-@pytest.mark.skip(reason="Skipping until FastMCP fetch issue is resolved")
+from unittest.mock import patch
 def test_fastmcp_call_function_with_headers(mock_env, mock_requests):
     os.environ["EXTRA_HEADERS"] = "X-Custom: Bar"
-    with patch('mcp_openapi_proxy.utils.fetch_openapi_spec', return_value=DUMMY_SPEC):
-        result = call_function(function_name="get_test", parameters={}, env_key="OPENAPI_SPEC_URL")
-        print(f"DEBUG: Call function result: {result}")
+    os.environ["API_KEY"] = "dummy"
+    from unittest.mock import patch
+    from mcp_openapi_proxy import server_fastmcp
+    # Patch the fetch_openapi_spec in server_fastmcp so it returns DUMMY_SPEC.
+    with patch('mcp_openapi_proxy.server_fastmcp.fetch_openapi_spec', return_value=DUMMY_SPEC):
+        from types import SimpleNamespace
+        with patch('mcp_openapi_proxy.utils.normalize_tool_name', side_effect=lambda raw_name: "get_test"), \
+             patch('mcp_openapi_proxy.server_fastmcp.requests.request', return_value=SimpleNamespace(text='"Mocked response"', raise_for_status=lambda: None)):
+            result = server_fastmcp.call_function(function_name="get_test", parameters={}, env_key="OPENAPI_SPEC_URL")
+            print(f"DEBUG: Call function result: {result}")
     assert json.loads(result) == "Mocked response", "Call function failed with headers"
