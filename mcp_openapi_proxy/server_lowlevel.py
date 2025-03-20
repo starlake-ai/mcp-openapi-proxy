@@ -89,6 +89,14 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
             headers["Content-Type"] = "application/json"
 
         path = operation_details['path']
+        # Substitute URI placeholders
+        if '{' in path and '}' in path:
+            for param_name, param_value in parameters.items():
+                if f"{{{param_name}}}" in path:
+                    path = path.replace(f"{{{param_name}}}", str(param_value))
+                    logger.debug(f"Substituted {param_name}={param_value} in path: {path}")
+                    if param_name in parameters:
+                        del parameters[param_name]  # Remove used path param
 
         base_url = build_base_url(openapi_spec_data)
         if not base_url:
@@ -105,7 +113,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
 
         if isinstance(parameters, dict):
             merged_params = []
-            path_item = openapi_spec_data.get("paths", {}).get(path, {})
+            path_item = openapi_spec_data.get("paths", {}).get(operation_details['original_path'], {})
             if isinstance(path_item, dict) and "parameters" in path_item:
                 merged_params.extend(path_item["parameters"])
             if "parameters" in operation:
@@ -114,7 +122,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
             if path_params_in_openapi:
                 missing_required = [
                     param["name"] for param in merged_params
-                    if param.get("in") == "path" and param.get("required", False) and param["name"] not in parameters
+                    if param.get("in") == "path" and param.get("required", False) and param["name"] not in arguments
                 ]
                 if missing_required:
                     logger.error(f"Missing required path parameters: {missing_required}")
@@ -123,12 +131,6 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
                             content=[types.TextContent(type="text", text=f"Missing required path parameters: {missing_required}")]
                         )
                     )
-                for param_name in path_params_in_openapi:
-                    if param_name in parameters:
-                        value = str(parameters.pop(param_name))
-                        api_url = api_url.replace(f"{{{param_name}}}", value)
-                        api_url = api_url.replace(f"%7B{param_name}%7D", value)
-                        logger.debug(f"Replaced path param {param_name} in URL: {api_url}")
             if method == "GET":
                 request_params = parameters
             else:
@@ -295,6 +297,16 @@ def register_functions(spec: Dict) -> List[types.Tool]:
                     "additionalProperties": False
                 }
                 parameters = operation.get('parameters', [])
+                # Handle URI placeholders
+                placeholder_params = [part.strip('{}') for part in path.split('/') if '{' in part and '}' in part]
+                for param_name in placeholder_params:
+                    input_schema['properties'][param_name] = {
+                        "type": "string",
+                        "description": f"Path parameter {param_name}"
+                    }
+                    input_schema['required'].append(param_name)
+                    logger.debug(f"Added URI placeholder {param_name} to inputSchema for {function_name}")
+                # Add query/path params from spec
                 for param in parameters:
                     param_name = param.get('name')
                     param_in = param.get('in')
@@ -305,7 +317,7 @@ def register_functions(spec: Dict) -> List[types.Tool]:
                             "type": schema_type,
                             "description": param.get('description', f"{param_in} parameter {param_name}")
                         }
-                        if param.get('required', False):
+                        if param.get('required', False) and param_name not in input_schema['required']:
                             input_schema['required'].append(param_name)
                 tool = types.Tool(
                     name=function_name,
@@ -329,7 +341,7 @@ def lookup_operation_details(function_name: str, spec: Dict) -> Dict or None:
             raw_name = f"{method.upper()} {path}"
             current_function_name = normalize_tool_name(raw_name)
             if current_function_name == function_name:
-                return {"path": path, "method": method.upper(), "operation": operation}
+                return {"path": path, "method": method.upper(), "operation": operation, "original_path": path}
     return None
 
 async def start_server():
