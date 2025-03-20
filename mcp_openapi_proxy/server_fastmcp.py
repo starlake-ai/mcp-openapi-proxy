@@ -58,9 +58,10 @@ def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
         if not path_item:
             logger.debug(f"Path item is empty for {path}")
             continue
+        whitelist_env = os.getenv('TOOL_WHITELIST', '').strip()
         whitelist_check = is_tool_whitelisted(path)
-        logger.debug(f"Whitelist check for {path}: {whitelist_check}")
-        if not whitelist_check:
+        logger.debug(f"Whitelist check for {path}: {whitelist_check} with TOOL_WHITELIST: '{whitelist_env}'")
+        if whitelist_env and not whitelist_check:
             logger.debug(f"Path {path} not in whitelist - skipping.")
             continue
         for method, operation in path_item.items():
