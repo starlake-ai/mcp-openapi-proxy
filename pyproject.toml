@@ -35,6 +35,9 @@ dev = [
 markers = [
     "integration: mark a test as an integration test"
 ]
+env = [
+    "OPENAPI_SPEC_URL=https://glama.ai/api/mcp/openapi.json"
+]
 
 [tool.setuptools.packages]
 find = {include = ["mcp_openapi_proxy", "mcp_openapi_proxy.*"]}
