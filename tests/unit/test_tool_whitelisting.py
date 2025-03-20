@@ -22,14 +22,12 @@ def test_multiple_prefixes(monkeypatch):
     assert is_tool_whitelisted('/projects/xyz') is True
     assert is_tool_whitelisted('/collections') is False
 
-@pytest.mark.skip(reason="Whitelist logic flipped, revisit later")
 def test_placeholder_whitelist(monkeypatch):
     monkeypatch.setenv('TOOL_WHITELIST', '/collections/{collection_id}')
     assert is_tool_whitelisted('/collections/abc123') is True
     assert is_tool_whitelisted('/collections/') is False
     assert is_tool_whitelisted('/collections/abc123/items') is True
 
-@pytest.mark.skip(reason="Whitelist logic flipped, revisit later")
 def test_multiple_placeholders(monkeypatch):
     monkeypatch.setenv('TOOL_WHITELIST', '/company/{company_id}/project/{project_id}')
     assert is_tool_whitelisted('/company/comp123/project/proj456') is True
