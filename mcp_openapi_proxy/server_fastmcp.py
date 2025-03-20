@@ -3,12 +3,12 @@ Provides the FastMCP server logic for mcp-openapi-proxy.
 
 This server exposes a pre-defined set of functions based on an OpenAPI specification.
 Configuration is controlled via environment variables:
-
 - OPENAPI_SPEC_URL_<hash>: Unique URL per test, falls back to OPENAPI_SPEC_URL.
 - TOOL_WHITELIST: Comma-separated list of allowed endpoint paths.
 - SERVER_URL_OVERRIDE: Optional override for the base URL from the OpenAPI spec.
 - API_KEY: Generic token for Bearer header.
 - STRIP_PARAM: Param name (e.g., "auth") to remove from parameters.
+- EXTRA_HEADERS: Additional headers in 'Header: Value' format, one per line.
 """
 
 import os
@@ -18,7 +18,7 @@ import requests
 from typing import Dict, Any
 from mcp import types
 from mcp.server.fastmcp import FastMCP
-from mcp_openapi_proxy.utils import setup_logging, is_tool_whitelisted, fetch_openapi_spec, build_base_url, normalize_tool_name, handle_auth, strip_parameters, get_tool_prefix
+from mcp_openapi_proxy.utils import setup_logging, is_tool_whitelisted, fetch_openapi_spec, build_base_url, normalize_tool_name, handle_auth, strip_parameters, get_tool_prefix, get_additional_headers
 
 logger = setup_logging(debug=os.getenv("DEBUG", "").lower() in ("true", "1", "yes"))
 
@@ -27,10 +27,12 @@ logger.debug(f"Server sys.path: {sys.path}")
 
 mcp = FastMCP("OpenApiProxy-Fast")
 
+spec = None  # Global spec for resources
+
 @mcp.tool()
-def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
-    """Lists available functions derived from the OpenAPI specification."""
-    logger.debug("Executing list_functions tool.")
+def list_tools(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
+    """Lists available tools derived from the OpenAPI specification."""
+    logger.debug("Executing list_tools tool.")
     spec_url = os.environ.get(env_key, os.environ.get("OPENAPI_SPEC_URL"))
     whitelist = os.getenv('TOOL_WHITELIST')
     logger.debug(f"Using spec_url: {spec_url}")
@@ -38,6 +40,7 @@ def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
     if not spec_url:
         logger.error("No OPENAPI_SPEC_URL or custom env_key configured.")
         return json.dumps([])
+    global spec
     spec = fetch_openapi_spec(spec_url)
     if spec is None:
         logger.error("Spec is None after fetch_openapi_spec")
@@ -103,8 +106,46 @@ def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
                 "original_name": raw_name,
                 "inputSchema": input_schema
             }
-    logger.info(f"Discovered {len(functions)} functions from the OpenAPI specification.")
-    logger.debug(f"Functions list: {list(functions.values())}")
+    # Add resource tools
+    functions["list_resources"] = {
+        "name": "list_resources",
+        "description": "List available resources",
+        "path": None,
+        "method": None,
+        "operationId": None,
+        "original_name": "list_resources",
+        "inputSchema": {"type": "object", "properties": {}, "required": [], "additionalProperties": False}
+    }
+    functions["read_resource"] = {
+        "name": "read_resource",
+        "description": "Read a resource by URI",
+        "path": None,
+        "method": None,
+        "operationId": None,
+        "original_name": "read_resource",
+        "inputSchema": {"type": "object", "properties": {"uri": {"type": "string", "description": "Resource URI"}}, "required": ["uri"], "additionalProperties": False}
+    }
+    # Add prompt tools
+    functions["list_prompts"] = {
+        "name": "list_prompts",
+        "description": "List available prompts",
+        "path": None,
+        "method": None,
+        "operationId": None,
+        "original_name": "list_prompts",
+        "inputSchema": {"type": "object", "properties": {}, "required": [], "additionalProperties": False}
+    }
+    functions["get_prompt"] = {
+        "name": "get_prompt",
+        "description": "Get a prompt by name",
+        "path": None,
+        "method": None,
+        "operationId": None,
+        "original_name": "get_prompt",
+        "inputSchema": {"type": "object", "properties": {"name": {"type": "string", "description": "Prompt name"}}, "required": ["name"], "additionalProperties": False}
+    }
+    logger.info(f"Discovered {len(functions)} tools from the OpenAPI specification.")
+    logger.debug(f"Tools list: {list(functions.values())}")
     return json.dumps(list(functions.values()), indent=2)
 
 @mcp.tool()
@@ -120,6 +161,27 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
     if not spec_url:
         logger.error("No OPENAPI_SPEC_URL or custom env_key configured.")
         return json.dumps({"error": "OPENAPI_SPEC_URL is not configured"})
+    global spec
+    if function_name == "list_resources":
+        return json.dumps([{"name": "spec_file", "uri": "file:///openapi_spec.json", "description": "The raw OpenAPI specification JSON"}])
+    if function_name == "read_resource":
+        if not parameters or "uri" not in parameters:
+            return json.dumps({"error": "uri parameter required"})
+        if parameters["uri"] != "file:///openapi_spec.json":
+            return json.dumps({"error": "Resource not found"})
+        if not spec:
+            spec = fetch_openapi_spec(spec_url)
+            if spec is None:
+                return json.dumps({"error": "Failed to fetch OpenAPI spec"})
+        return json.dumps(spec, indent=2)
+    if function_name == "list_prompts":
+        return json.dumps([{"name": "summarize_spec", "description": "Summarizes the purpose of the OpenAPI specification", "arguments": []}])
+    if function_name == "get_prompt":
+        if not parameters or "name" not in parameters:
+            return json.dumps({"error": "name parameter required"})
+        if parameters["name"] != "summarize_spec":
+            return json.dumps({"error": "Prompt not found"})
+        return json.dumps([{"role": "assistant", "content": {"type": "text", "text": "This OpenAPI spec defines an API’s endpoints, parameters, and responses, making it a blueprint for devs to build and integrate stuff without messing it up."}}])
     spec = fetch_openapi_spec(spec_url)
     if spec is None:
         logger.error("Spec is None for call_function")
@@ -159,6 +221,8 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
     operation = function_def["operation"]
     operation["method"] = function_def["method"]
     headers = handle_auth(operation)
+    additional_headers = get_additional_headers()
+    headers = {**headers, **additional_headers}
     parameters = strip_parameters(parameters)
     if function_def["method"] != "GET":
         headers["Content-Type"] = "application/json"
@@ -228,11 +292,12 @@ def run_simple_server():
         sys.exit(1)
 
     logger.debug("Preloading tools from OpenAPI spec...")
+    global spec
     spec = fetch_openapi_spec(spec_url)
     if spec is None:
         logger.error("Failed to fetch OpenAPI spec, no tools to preload.")
         sys.exit(1)
-    list_functions()
+    list_tools()
 
     try:
         logger.debug("Starting MCP server (FastMCP version)...")
