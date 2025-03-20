@@ -395,6 +395,8 @@ After starting the service, refer to the [JSON-RPC Testing](#json-rpc-testing) s
 
 ### Asana Example
 
+![image](https://github.com/user-attachments/assets/087571dd-9e06-407e-905c-92815231f618)
+
 Asana provides a rich set of endpoints for managing workspaces, tasks, projects, and users. The integration tests demonstrate usage of endpoints such as `GET /workspaces`, `GET /tasks`, and `GET /projects`.
 
 #### 1. Verify the OpenAPI Specification
