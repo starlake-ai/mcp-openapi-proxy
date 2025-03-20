@@ -437,7 +437,7 @@ Add the following configuration to your MCP ecosystem settings:
 Before running integration tests, ensure you have a valid `ASANA_API_KEY` set in your environment (e.g. in your .env file). Then start the proxy with:
 
 ```bash
-ASANA_API_KEY="<your_asana_api_key>" uvx mcp-openapi-proxy
+ASANA_API_KEY="<your_asana_api_key>" OPENAPI_SPEC_URL="https://raw.githubusercontent.com/Asana/openapi/refs/heads/master/defs/asana_oas.yaml" SERVER_URL_OVERRIDE="https://app.asana.com/api/1.0" TOOL_WHITELIST="/workspaces,/tasks,/projects,/users" uvx mcp-openapi-proxy
 ```
 
 Use MCP tools (via JSON-RPC messages or client libraries) to interact with the Asana endpoints, such as listing workspaces, tasks, and projects, as demonstrated in the integration tests.
