@@ -18,7 +18,7 @@ import requests
 from typing import Dict, Any
 from mcp import types
 from mcp.server.fastmcp import FastMCP
-from mcp_openapi_proxy.utils import setup_logging, is_tool_whitelisted, fetch_openapi_spec, build_base_url, normalize_tool_name, handle_auth, strip_parameters, get_tool_prefix, get_additional_headers
+from mcp_openapi_proxy.utils import setup_logging, is_tool_whitelisted, fetch_openapi_spec, build_base_url, normalize_tool_name, handle_auth, strip_parameters, get_tool_prefix
 
 logger = setup_logging(debug=os.getenv("DEBUG", "").lower() in ("true", "1", "yes"))
 
@@ -86,6 +86,16 @@ def list_tools(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
                 "required": [],
                 "additionalProperties": False
             }
+            # Handle URI placeholders
+            placeholder_params = [part.strip('{}') for part in path.split('/') if '{' in part and '}' in part]
+            for param_name in placeholder_params:
+                input_schema['properties'][param_name] = {
+                    "type": "string",
+                    "description": f"Path parameter {param_name}"
+                }
+                input_schema['required'].append(param_name)
+                logger.debug(f"Added URI placeholder {param_name} to inputSchema for {function_name}")
+            # Add query/path params from spec
             for param in operation.get("parameters", []):
                 param_name = param.get("name")
                 param_type = param.get("type", "string")
@@ -95,7 +105,7 @@ def list_tools(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
                     "type": param_type,
                     "description": param.get("description", f"{param.get('in', 'unknown')} parameter {param_name}")
                 }
-                if param.get("required", False):
+                if param.get("required", False) and param_name not in input_schema['required']:
                     input_schema["required"].append(param_name)
             functions[function_name] = {
                 "name": function_name,
@@ -237,6 +247,15 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
         return json.dumps({"error": "No base URL defined in spec or SERVER_URL_OVERRIDE"})
 
     path = function_def["path"]
+    # Substitute URI placeholders
+    if '{' in path and '}' in path:
+        for param_name, param_value in parameters.items():
+            if f"{{{param_name}}}" in path:
+                path = path.replace(f"{{{param_name}}}", str(param_value))
+                logger.debug(f"Substituted {param_name}={param_value} in path: {path}")
+                if param_name in parameters:
+                    del parameters[param_name]  # Remove used path param
+
     api_url = f"{base_url.rstrip('/')}/{path.lstrip('/')}"
     request_params = {}
     request_body = None
@@ -255,10 +274,6 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
             if missing_required:
                 logger.error(f"Missing required path parameters: {missing_required}")
                 return json.dumps({"error": f"Missing required path parameters: {missing_required}"})
-            for param_name in path_params_in_openapi:
-                if param_name in parameters:
-                    api_url = api_url.replace(f"{{{param_name}}}", str(parameters.pop(param_name)))
-                    logger.debug(f"Replaced path param {param_name} in URL: {api_url}")
         if function_def["method"] == "GET":
             request_params = parameters
         else:
