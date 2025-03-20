@@ -346,6 +346,8 @@ After starting the service refer to the [JSON-RPC Testing](#json-rpc-testing) se
 
 ### Notion Example
 
+![image](https://github.com/user-attachments/assets/a00572dd-0015-4a23-ab19-a601644376e5)
+
 Notion’s API requires specifying a particular version via HTTP headers. This example uses the `EXTRA_HEADERS` environment variable to include the required header, and focuses on verifying the OpenAPI specification.
 
 #### 1. Verify the OpenAPI Specification
