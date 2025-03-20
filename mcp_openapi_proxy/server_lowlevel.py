@@ -48,17 +48,6 @@ prompts: List[types.Prompt] = [
 ]
 openapi_spec_data = None
 
-# Fetch spec at module level
-openapi_url = os.getenv('OPENAPI_SPEC_URL')
-if not openapi_url:
-    logger.critical("OPENAPI_SPEC_URL environment variable is required but not set.")
-    sys.exit(1)
-openapi_spec_data = fetch_openapi_spec(openapi_url)
-if not openapi_spec_data:
-    logger.critical("Failed to fetch or parse OpenAPI specification from OPENAPI_SPEC_URL.")
-    sys.exit(1)
-logger.info("OpenAPI specification fetched successfully at startup.")
-
 mcp = Server("OpenApiProxy-LowLevel")
 
 async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResult:
@@ -100,14 +89,13 @@ async def dispatcher_handler(request: types.CallToolRequest) -> types.ServerResu
             headers["Content-Type"] = "application/json"
 
         path = operation_details['path']
-        # Substitute URI placeholders
         if '{' in path and '}' in path:
             for param_name, param_value in parameters.items():
                 if f"{{{param_name}}}" in path:
                     path = path.replace(f"{{{param_name}}}", str(param_value))
                     logger.debug(f"Substituted {param_name}={param_value} in path: {path}")
                     if param_name in parameters:
-                        del parameters[param_name]  # Remove used path param
+                        del parameters[param_name]
 
         base_url = build_base_url(openapi_spec_data)
         if not base_url:
@@ -223,6 +211,14 @@ async def read_resource(request: types.ReadResourceRequest) -> types.ServerResul
     try:
         if not openapi_spec_data:
             logger.warning("OpenAPI spec data missing, attempting to refetch")
+            openapi_url = os.getenv('OPENAPI_SPEC_URL')
+            if not openapi_url:
+                logger.error("OPENAPI_SPEC_URL not set for refetch")
+                return types.ServerResult(
+                    root=types.ReadResourceResult(
+                        contents=[{"type": "text", "content": "Spec unavailable: OPENAPI_SPEC_URL not set"}]
+                    )
+                )
             openapi_spec_data = fetch_openapi_spec(openapi_url)
             if not openapi_spec_data:
                 logger.error("Failed to refetch OpenAPI spec data")
@@ -234,7 +230,6 @@ async def read_resource(request: types.ReadResourceRequest) -> types.ServerResul
             logger.info("Successfully refetched OpenAPI spec data")
         spec_json = json.dumps(openapi_spec_data, indent=2)
         logger.debug(f"Serving spec JSON: {spec_json[:50]}...")
-        # Simplify return to avoid MCP choking
         return types.ServerResult(
             root=types.ReadResourceResult(
                 contents=[types.TextContent(type="text", text=spec_json)]
@@ -312,7 +307,6 @@ def register_functions(spec: Dict) -> List[types.Tool]:
                     "additionalProperties": False
                 }
                 parameters = operation.get('parameters', [])
-                # Handle URI placeholders
                 placeholder_params = [part.strip('{}') for part in path.split('/') if '{' in part and '}' in part]
                 for param_name in placeholder_params:
                     input_schema['properties'][param_name] = {
@@ -321,7 +315,6 @@ def register_functions(spec: Dict) -> List[types.Tool]:
                     }
                     input_schema['required'].append(param_name)
                     logger.debug(f"Added URI placeholder {param_name} to inputSchema for {function_name}")
-                # Add query/path params from spec
                 for param in parameters:
                     param_name = param.get('name')
                     param_in = param.get('in')
@@ -379,6 +372,15 @@ async def start_server():
 def run_server():
     global openapi_spec_data
     try:
+        openapi_url = os.getenv('OPENAPI_SPEC_URL')
+        if not openapi_url:
+            logger.critical("OPENAPI_SPEC_URL environment variable is required but not set.")
+            sys.exit(1)
+        openapi_spec_data = fetch_openapi_spec(openapi_url)
+        if not openapi_spec_data:
+            logger.critical("Failed to fetch or parse OpenAPI specification from OPENAPI_SPEC_URL.")
+            sys.exit(1)
+        logger.info("OpenAPI specification fetched successfully.")
         register_functions(openapi_spec_data)
         logger.debug(f"Tools after registration: {[tool.name for tool in tools]}")
         if not tools:
