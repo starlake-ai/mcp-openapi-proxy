@@ -174,9 +174,8 @@ async def dispatcher_handler(request: types.CallToolRequest) -> SimpleServerResu
         logger.debug(f"Response content type: {content.type}")
         logger.debug(f"Response sent to client: {content.text}")
         validated_content = [c.model_dump() if hasattr(c, "model_dump") else c for c in final_content]
-        return SimpleServerResult(root=types.CallToolResult(
-            content=validated_content
-        ).dict())
+        logger.debug(f"Final content array: {validated_content}")
+        return SimpleServerResult(root=types.CallToolResult(content=validated_content))
     except Exception as e:
         logger.error(f"Unhandled exception in dispatcher_handler: {e}", exc_info=True)
         return SimpleServerResult(root=types.CallToolResult(
