@@ -160,14 +160,16 @@ def strip_parameters(parameters: Dict) -> Dict:
     return result
 
 def detect_response_type(response_text: str) -> Tuple[types.TextContent, str]:
-    """Detect if the response is JSON or plain text."""
+    """Determine response type based on JSON validity.
+    If response_text is valid JSON, return a wrapped JSON string;
+    otherwise, return the plain text.
+    """
     try:
         json.loads(response_text)
-        logger.debug("Response detected as JSON")
-        return types.TextContent(type="text", text=f'{{"text": {json.dumps(response_text)}}}', id=None), "Response detected as JSON"
+        wrapped_text = json.dumps({"text": response_text})
+        return types.TextContent(type="text", text=wrapped_text, id=None), "JSON response"
     except json.JSONDecodeError:
-        logger.debug("Response detected as non-JSON text")
-        return types.TextContent(type="text", text=response_text, id=None), "Response detected as non-JSON text"
+        return types.TextContent(type="text", text=response_text.strip(), id=None), "non-JSON text"
 
 def get_additional_headers() -> Dict[str, str]:
     """Parse additional headers from EXTRA_HEADERS environment variable."""

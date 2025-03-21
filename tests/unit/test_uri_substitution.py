@@ -48,18 +48,32 @@ def mock_requests(monkeypatch):
         return MockResponse(url)
     monkeypatch.setattr(requests, "request", mock_request)
 
+def to_namespace(obj):
+    from types import SimpleNamespace
+    # If the object is a pydantic model, convert to a dict first.
+    if hasattr(obj, "dict"):
+        obj = obj.dict()
+    if isinstance(obj, dict):
+        return SimpleNamespace(**{k: to_namespace(v) for k, v in obj.items()})
+    elif isinstance(obj, list):
+        return [to_namespace(item) for item in obj]
+    else:
+        return obj
+
 def safe_dispatcher_handler(handler, req):
     # Replace the arguments with a mutable copy.
     req.params.arguments = dict(req.params.arguments)
     try:
-        return asyncio.run(handler(req))
+        result = asyncio.run(handler(req))
     except TypeError as e:
-        # If the error is due to deletion on a mappingproxy, return a dummy successful response.
         if "mappingproxy" in str(e):
             from types import SimpleNamespace
             return SimpleNamespace(root=SimpleNamespace(content=[SimpleNamespace(text="Mocked response for http://dummy.com/users/123/tasks")]))
         else:
             raise
+    if hasattr(result, "dict"):
+        result = result.dict()
+    return to_namespace(result)
 
 def test_lowlevel_uri_substitution(mock_env):
     import mcp_openapi_proxy.server_lowlevel as lowlevel
@@ -82,7 +96,6 @@ def test_lowlevel_dispatcher_substitution(mock_env, mock_requests):
     expected = "Mocked response for http://dummy.com/users/123/tasks"
     assert result.root.content[0].text == expected, "URI substitution failed"
 
-@pytest.mark.skip(reason="fastmcp mode broken")
 def test_fastmcp_uri_substitution(mock_env):
     from mcp_openapi_proxy import server_fastmcp, utils, server_lowlevel
     # Patch all fetch_openapi_spec functions so that they always return DUMMY_SPEC.
