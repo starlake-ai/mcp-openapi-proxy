@@ -57,7 +57,6 @@ def test_lowlevel_read_resource_valid(mock_env):
     expected = json.dumps({"dummy": "spec"}, indent=2)
     assert res["contents"][0]["text"] == expected, "Expected spec JSON"
 
-@pytest.mark.skip(reason="Skipping fastmcp tests for now")
 def test_fastmcp_list_resources(mock_env):
     import mcp_openapi_proxy.server_fastmcp as fm
     fm.types = t
@@ -70,11 +69,11 @@ def test_fastmcp_list_resources(mock_env):
         assert len(resources) == 1, "Expected one resource"
         assert resources[0]["name"] == "spec_file", "Expected spec_file resource"
 
-@pytest.mark.skip(reason="Skipping fastmcp tests for now")
 def test_fastmcp_read_resource_valid(mock_env):
     import mcp_openapi_proxy.server_fastmcp as fm
+    from unittest.mock import patch
     fm.types = t
-    with patch("mcp_openapi_proxy.server_fastmcp.fetch_openapi_spec", return_value='{"paths":{},"tools":[{"name": "list_resources"}]}'):
-        fm.spec = {"dummy": "spec"}
-        result = call_function(function_name="read_resource", parameters={"uri": "file:///openapi_spec.json"}, env_key="OPENAPI_SPEC_URL")
-        assert json.loads(result) == {"dummy": "spec"}, "Expected spec JSON"
+    with patch("mcp_openapi_proxy.server_fastmcp.spec", new=None):
+        with patch("mcp_openapi_proxy.server_fastmcp.fetch_openapi_spec", return_value={"dummy": "spec"}):
+            result = call_function(function_name="read_resource", parameters={"uri": "file:///openapi_spec.json"}, env_key="OPENAPI_SPEC_URL")
+            assert json.loads(result) == {"dummy": "spec"}, "Expected spec JSON"
