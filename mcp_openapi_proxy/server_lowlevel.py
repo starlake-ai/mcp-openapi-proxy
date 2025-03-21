@@ -103,6 +103,10 @@ async def dispatcher_handler(request: types.CallToolRequest) -> SimpleServerResu
         try:
             path = path.format(**parameters)
             logger.debug(f"Substituted path using format(): {path}")
+            if method == "GET":
+                placeholder_keys = [seg.strip('{}') for seg in operation_details['original_path'].split('/') if seg.startswith('{') and seg.endswith('}')]
+                for key in placeholder_keys:
+                    parameters.pop(key, None)
         except KeyError as e:
             logger.error(f"Missing parameter for substitution: {e}")
             return SimpleServerResult(root=types.CallToolResult(
