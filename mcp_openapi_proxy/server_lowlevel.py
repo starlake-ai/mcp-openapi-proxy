@@ -267,7 +267,6 @@ def register_functions(spec: Dict) -> List[types.Tool]:
     global tools
     logger.debug("Clearing previously registered tools to allow re-registration")
     tools.clear()
-    tools = []
     if not spec:
         logger.error("OpenAPI spec is None or empty.")
         return tools
