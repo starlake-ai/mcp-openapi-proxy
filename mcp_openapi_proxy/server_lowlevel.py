@@ -41,7 +41,7 @@ logger = setup_logging(debug=DEBUG)
 
 # Define a simple pydantic model to ensure "root" field exists
 class SimpleServerResult(BaseModel):
-    root: dict
+    root: types.CallToolResult
 
 tools: List[types.Tool] = []
 resources: List[types.Resource] = [
@@ -78,7 +78,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> SimpleServerResu
             logger.error(f"Unknown function requested: {function_name}")
             return SimpleServerResult(root=types.CallToolResult(
                 content=[types.TextContent(type="text", text="Unknown function requested")]
-            ).dict())
+            ))
         arguments = request.params.arguments or {}
         logger.debug(f"Raw arguments before processing: {arguments}")
 
@@ -87,7 +87,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> SimpleServerResu
             logger.error(f"Could not find OpenAPI operation for function: {function_name}")
             return SimpleServerResult(root=types.CallToolResult(
                 content=[types.TextContent(type="text", text=f"Could not find OpenAPI operation for function: {function_name}")]
-            ).dict())
+            ))
 
         operation = operation_details['operation']
         operation['method'] = operation_details['method']
