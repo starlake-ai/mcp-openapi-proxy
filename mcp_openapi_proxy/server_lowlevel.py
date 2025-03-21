@@ -107,10 +107,6 @@ async def dispatcher_handler(request: types.CallToolRequest) -> SimpleServerResu
                 placeholder_keys = [seg.strip('{}') for seg in operation_details['original_path'].split('/') if seg.startswith('{') and seg.endswith('}')]
                 for key in placeholder_keys:
                     parameters.pop(key, None)
-            if method == "GET":
-                placeholder_keys = [seg.strip('{}') for seg in operation_details['original_path'].split('/') if seg.startswith('{') and seg.endswith('}')]
-                for key in placeholder_keys:
-                    parameters.pop(key, None)
         except KeyError as e:
             logger.error(f"Missing parameter for substitution: {e}")
             return SimpleServerResult(root=types.CallToolResult(
@@ -177,8 +173,9 @@ async def dispatcher_handler(request: types.CallToolRequest) -> SimpleServerResu
             ).dict())
         logger.debug(f"Response content type: {content.type}")
         logger.debug(f"Response sent to client: {content.text}")
+        validated_content = [c.model_dump() if hasattr(c, "model_dump") else c for c in final_content]
         return SimpleServerResult(root=types.CallToolResult(
-            content=final_content
+            content=validated_content
         ).dict())
     except Exception as e:
         logger.error(f"Unhandled exception in dispatcher_handler: {e}", exc_info=True)
