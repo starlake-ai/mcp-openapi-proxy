@@ -378,10 +378,10 @@ def run_server():
             sys.exit(1)
         mcp.request_handlers[types.ListToolsRequest] = list_tools
         mcp.request_handlers[types.CallToolRequest] = dispatcher_handler
-        mcp.request_handlers[types.ListResourcesRequest] = list_resources
-        mcp.request_handlers[types.ReadResourceRequest] = read_resource
-        mcp.request_handlers[types.ListPromptsRequest] = list_prompts
-        mcp.request_handlers[types.GetPromptRequest] = get_prompt
+        # mcp.request_handlers[types.ListResourcesRequest] = list_resources
+        # mcp.request_handlers[types.ReadResourceRequest] = read_resource
+        # mcp.request_handlers[types.ListPromptsRequest] = list_prompts
+        # mcp.request_handlers[types.GetPromptRequest] = get_prompt
         logger.debug("Handlers registered.")
         asyncio.run(start_server())
     except KeyboardInterrupt:
