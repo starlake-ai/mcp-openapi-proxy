@@ -170,7 +170,7 @@ def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
         "original_name": "get_prompt",
         "inputSchema": {"type": "object", "properties": {"name": {"type": "string", "description": "Prompt name"}}, "required": ["name"], "additionalProperties": False}
     }
-    logger.info(f"Discovered {len(functions)} functions from the OpenAPI specification.")
+    logger.debug(f"Discovered {len(functions)} functions from the OpenAPI specification.")
     if "get_tasks_id" not in functions:
         functions["get_tasks_id"] = {
             "name": "get_tasks_id",

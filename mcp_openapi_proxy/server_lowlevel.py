@@ -228,7 +228,7 @@ async def read_resource(request: types.ReadResourceRequest) -> types.ServerResul
                 logger.error("Failed to refetch OpenAPI spec data")
                 result = types.ReadResourceResult(contents=[{"type": "text", "content": "Spec data unavailable after refetch attempt"}])
                 return types.ServerResult(root=result)
-            logger.info("Successfully refetched OpenAPI spec data")
+            logger.debug("Successfully refetched OpenAPI spec data")
         spec_json = json.dumps(openapi_spec_data, indent=2)
         logger.debug(f"Serving spec JSON: {spec_json[:50]}...")
         result = types.ReadResourceResult(contents=[types.TextContent(type="text", text=spec_json)])
@@ -326,7 +326,7 @@ def register_functions(spec: Dict) -> List[types.Tool]:
                 logger.debug(f"Registered function: {function_name} ({method.upper()} {path}) with inputSchema: {json.dumps(input_schema)}")
             except Exception as e:
                 logger.error(f"Error registering function for {method.upper()} {path}: {e}", exc_info=True)
-    logger.info(f"Registered {len(tools)} functions from OpenAPI spec.")
+    logger.debug(f"Registered {len(tools)} functions from OpenAPI spec.")
     return tools
 
 def lookup_operation_details(function_name: str, spec: Dict) -> Dict or None:
@@ -370,7 +370,7 @@ def run_server():
         if not openapi_spec_data:
             logger.critical("Failed to fetch or parse OpenAPI specification from OPENAPI_SPEC_URL.")
             sys.exit(1)
-        logger.info("OpenAPI specification fetched successfully.")
+        logger.debug("OpenAPI specification fetched successfully.")
         register_functions(openapi_spec_data)
         logger.debug(f"Tools after registration: {[tool.name for tool in tools]}")
         if not tools:
