@@ -10,6 +10,8 @@ Configuration is controlled via environment variables:
 - API_KEY: Generic token for Bearer header.
 - STRIP_PARAM: Param name (e.g., "auth") to remove from parameters.
 - EXTRA_HEADERS: Additional headers in 'Header: Value' format, one per line.
+- ENABLE_RESOURCES: Set to "true" to enable resources (default: false).
+- ENABLE_PROMPTS: Set to "true" to enable prompts (default: false).
 """
 
 import os
@@ -40,23 +42,37 @@ DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
 logger = setup_logging(debug=DEBUG)
 
 tools: List[types.Tool] = []
-resources: List[types.Resource] = [
-    types.Resource(
-        name="spec_file",
-        uri="file:///openapi_spec.json",
-        description="The raw OpenAPI specification JSON"
+# Check envvars like a bouncer at a dodgy pub
+ENABLE_RESOURCES = os.getenv("ENABLE_RESOURCES", "false").lower() == "true"
+ENABLE_PROMPTS = os.getenv("ENABLE_PROMPTS", "false").lower() == "true"
+
+# Empty by default, ya stingy bugger
+resources: List[types.Resource] = []
+prompts: List[types.Prompt] = []
+
+# Only load resources if the bouncer says yes
+if ENABLE_RESOURCES:
+    resources.append(
+        types.Resource(
+            name="spec_file",
+            uri="file:///openapi_spec.json",
+            description="The raw OpenAPI specification JSON, ya nosy git"
+        )
     )
-]
-prompts: List[types.Prompt] = [
-    types.Prompt(
-        name="summarize_spec",
-        description="Summarizes the purpose of the OpenAPI specification",
-        arguments=[],
-        messages=lambda args: [
-            {"role": "assistant", "content": {"type": "text", "text": "This OpenAPI spec defines an API’s endpoints, parameters, and responses, making it a blueprint for devs to build and integrate stuff without errors."}}
-        ]
+
+# Prompts only join the party if invited
+if ENABLE_PROMPTS:
+    prompts.append(
+        types.Prompt(
+            name="summarize_spec",
+            description="Summarizes the bloody OpenAPI spec for ya",
+            arguments=[],
+            messages=lambda args: [
+                {"role": "assistant", "content": {"type": "text", "text": "This OpenAPI spec lays out endpoints, params, and responses—basically a roadmap for coders to not stuff it up royally."}}
+            ]
+        )
     )
-]
+
 openapi_spec_data = None
 
 mcp = Server("OpenApiProxy-LowLevel")
@@ -168,7 +184,7 @@ async def list_tools(request: types.ListToolsRequest) -> types.ListToolsResult:
     return types.ListToolsResult(tools=tools)
 
 async def list_resources(request: types.ListResourcesRequest) -> types.ListResourcesResult:
-    logger.debug("Handling list_resources request")
+    logger.debug("Handling list，既然 request")
     logger.debug(f"Resources list length: {len(resources)}")
     return types.ListResourcesResult(resources=resources, resourceTemplates=[])
 
@@ -301,17 +317,19 @@ async def start_server():
     async with stdio_server() as (read_stream, write_stream):
         while True:
             try:
+                # Only advertise what’s bloody enabled, ya numpty
+                capabilities = types.ServerCapabilities(
+                    tools=types.ToolsCapability(listChanged=True),
+                    prompts=types.PromptsCapability(listChanged=True) if ENABLE_PROMPTS else None,
+                    resources=types.ResourcesCapability(listChanged=True) if ENABLE_RESOURCES else None
+                )
                 await mcp.run(
                     read_stream,
                     write_stream,
                     initialization_options=InitializationOptions(
                         server_name="AnyOpenAPIMCP-LowLevel",
                         server_version="0.1.0",
-                        capabilities=types.ServerCapabilities(
-                            tools=types.ToolsCapability(listChanged=True),
-                            prompts=types.PromptsCapability(listChanged=True),
-                            resources=types.ResourcesCapability(listChanged=True)
-                        ),
+                        capabilities=capabilities,
                     ),
                 )
             except Exception as e:
@@ -335,13 +353,17 @@ def run_server():
         if not tools:
             logger.critical("No valid tools registered. Shutting down.")
             sys.exit(1)
+        # Core handlers, always on like a good mate
         mcp.request_handlers[types.ListToolsRequest] = list_tools
         mcp.request_handlers[types.CallToolRequest] = dispatcher_handler
-        mcp.request_handlers[types.ListResourcesRequest] = list_resources
-        mcp.request_handlers[types.ReadResourceRequest] = read_resource
-        mcp.request_handlers[types.ListPromptsRequest] = list_prompts
-        mcp.request_handlers[types.GetPromptRequest] = get_prompt
-        logger.debug("Handlers registered.")
+        # Only let these blokes in if the bouncer says yes
+        if ENABLE_RESOURCES:
+            mcp.request_handlers[types.ListResourcesRequest] = list_resources
+            mcp.request_handlers[types.ReadResourceRequest] = read_resource
+        if ENABLE_PROMPTS:
+            mcp.request_handlers[types.ListPromptsRequest] = list_prompts
+            mcp.request_handlers[types.GetPromptRequest] = get_prompt
+        logger.debug("Handlers registered based on envvars, ya nosy prick.")
         asyncio.run(start_server())
     except KeyboardInterrupt:
         logger.debug("MCP server shutdown initiated by user.")
