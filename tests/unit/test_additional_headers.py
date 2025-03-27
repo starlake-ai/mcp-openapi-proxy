@@ -65,7 +65,7 @@ async def test_lowlevel_dispatcher_with_headers(mock_env, mock_requests, monkeyp
     request = SimpleNamespace(params=SimpleNamespace(name="get_test", arguments={}))
     with patch('mcp_openapi_proxy.server_fastmcp.fetch_openapi_spec', return_value=DUMMY_SPEC):
         result = await dispatcher_handler(request)
-    assert result.root.content[0].text == "Mocked response", "Dispatcher failed with headers"
+    assert result.content[0].text == "Mocked response", "Dispatcher failed with headers"
 
 from unittest.mock import patch
 def test_fastmcp_call_function_with_headers(mock_env, mock_requests):
