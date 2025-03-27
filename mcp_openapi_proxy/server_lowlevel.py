@@ -10,9 +10,12 @@ Configuration is controlled via environment variables:
 - API_KEY: Generic token for Bearer header.
 - STRIP_PARAM: Param name (e.g., "auth") to remove from parameters.
 - EXTRA_HEADERS: Additional headers in 'Header: Value' format, one per line.
-- ENABLE_CAPABILTIIES_TOOLS: Set to "true" to enable resources (default: false).
-- ENABLE_CAPABILTIIES_RESOURCES: Set to "true" to enable resources (default: false).
-- ENABLE_CAPABILTIIES_PROMPTS: Set to "true" to enable prompts (default: false).
+- CAPABILITIES_TOOLS: Set to "false" to disable tools advertising (default: true).
+- CAPABILITIES_RESOURCES: Set to "false" to disable resources advertising (default: true).
+- CAPABILITIES_PROMPTS: Set to "false" to disable prompts advertising (default: true).
+- ENABLE_TOOLS: Set to "false" to disable tools functionality (default: true).
+- ENABLE_RESOURCES: Set to "false" to disable resources functionality (default: true).
+- ENABLE_PROMPTS: Set to "false" to disable prompts functionality (default: true).
 """
 
 import os
@@ -43,32 +46,40 @@ DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
 logger = setup_logging(debug=DEBUG)
 
 tools: List[types.Tool] = []
-# Check envvars like a bouncer at a dodgy pub
-ENABLE_CAPABILITIES_TOOLS = os.getenv("ENABLE_CAPABILITIES_TOOLS", "false").lower() == "true"
-ENABLE_CAPABILITIES_RESOURCES = os.getenv("ENABLE_CAPABILITIES_RESOURCES", "false").lower() == "true"
-ENABLE_CAPABILITIES_PROMPTS = os.getenv("ENABLE_CAPABILITIES_PROMPTS", "false").lower() == "true"
+# Check capability advertisement envvars (on by default)
+CAPABILITIES_TOOLS = os.getenv("CAPABILITIES_TOOLS", "true").lower() == "true"
+CAPABILITIES_RESOURCES = os.getenv("CAPABILITIES_RESOURCES", "true").lower() == "true"
+CAPABILITIES_PROMPTS = os.getenv("CAPABILITIES_PROMPTS", "true").lower() == "true"
 
+# Check feature enablement envvars (on by default)
+ENABLE_TOOLS = os.getenv("ENABLE_TOOLS", "true").lower() == "true"
+ENABLE_RESOURCES = os.getenv("ENABLE_RESOURCES", "true").lower() == "true"
+ENABLE_PROMPTS = os.getenv("ENABLE_PROMPTS", "true").lower() == "true"
+
+# Populate by default, mate—turn off with envvars
 resources: List[types.Resource] = []
 prompts: List[types.Prompt] = []
 
-resources.append(
-    types.Resource(
-        name="spec_file",
-        uri="file:///openapi_spec.json",
-        description="The raw OpenAPI specification JSON, ya nosy git"
+if ENABLE_RESOURCES:
+    resources.append(
+        types.Resource(
+            name="spec_file",
+            uri="file:///openapi_spec.json",
+            description="The raw OpenAPI specification JSON"
+        )
     )
-)
 
-prompts.append(
-    types.Prompt(
-        name="summarize_spec",
-        description="Summarizes the bloody OpenAPI spec for ya",
-        arguments=[],
-        messages=lambda args: [
-            {"role": "assistant", "content": {"type": "text", "text": "This OpenAPI spec lays out endpoints, params, and responses—basically a roadmap for coders to not stuff it up royally."}}
-        ]
+if ENABLE_PROMPTS:
+    prompts.append(
+        types.Prompt(
+            name="summarize_spec",
+            description="Summarizes the OpenAPI specification",
+            arguments=[],
+            messages=lambda args: [
+                {"role": "assistant", "content": {"type": "text", "text": "This OpenAPI spec defines endpoints, parameters, and responses—a blueprint for developers to integrate effectively."}}
+            ]
+        )
     )
-)
 
 openapi_spec_data = None
 
@@ -181,7 +192,7 @@ async def list_tools(request: types.ListToolsRequest) -> types.ListToolsResult:
     return types.ListToolsResult(tools=tools)
 
 async def list_resources(request: types.ListResourcesRequest) -> types.ListResourcesResult:
-    logger.debug("Handling list，既然 request")
+    logger.debug("Handling list_resources request")
     logger.debug(f"Resources list length: {len(resources)}")
     return types.ListResourcesResult(resources=resources, resourceTemplates=[])
 
@@ -314,11 +325,10 @@ async def start_server():
     async with stdio_server() as (read_stream, write_stream):
         while True:
             try:
-                # Only advertise what’s bloody enabled, ya numpty
                 capabilities = types.ServerCapabilities(
-                    tools=types.ToolsCapability(listChanged=True) if ENABLE_CAPABILITIES_TOOLS else None,
-                    prompts=types.PromptsCapability(listChanged=True) if ENABLE_CAPABILITIES_PROMPTS else None,
-                    resources=types.ResourcesCapability(listChanged=True) if ENABLE_CAPABILITIES_RESOURCES else None
+                    tools=types.ToolsCapability(listChanged=True) if CAPABILITIES_TOOLS else None,
+                    prompts=types.PromptsCapability(listChanged=True) if CAPABILITIES_PROMPTS else None,
+                    resources=types.ResourcesCapability(listChanged=True) if CAPABILITIES_RESOURCES else None
                 )
                 await mcp.run(
                     read_stream,
@@ -345,18 +355,22 @@ def run_server():
             logger.critical("Failed to fetch or parse OpenAPI specification from OPENAPI_SPEC_URL.")
             sys.exit(1)
         logger.debug("OpenAPI specification fetched successfully.")
-        register_functions(openapi_spec_data)
+        if ENABLE_TOOLS:
+            register_functions(openapi_spec_data)
         logger.debug(f"Tools after registration: {[tool.name for tool in tools]}")
-        if not tools:
+        if ENABLE_TOOLS and not tools:
             logger.critical("No valid tools registered. Shutting down.")
             sys.exit(1)
-        mcp.request_handlers[types.ListToolsRequest] = list_tools
-        mcp.request_handlers[types.CallToolRequest] = dispatcher_handler
-        mcp.request_handlers[types.ListResourcesRequest] = list_resources
-        mcp.request_handlers[types.ReadResourceRequest] = read_resource
-        mcp.request_handlers[types.ListPromptsRequest] = list_prompts
-        mcp.request_handlers[types.GetPromptRequest] = get_prompt
-        logger.debug("Handlers registered based on envvars, ya nosy prick.")
+        if ENABLE_TOOLS:
+            mcp.request_handlers[types.ListToolsRequest] = list_tools
+            mcp.request_handlers[types.CallToolRequest] = dispatcher_handler
+        if ENABLE_RESOURCES:
+            mcp.request_handlers[types.ListResourcesRequest] = list_resources
+            mcp.request_handlers[types.ReadResourceRequest] = read_resource
+        if ENABLE_PROMPTS:
+            mcp.request_handlers[types.ListPromptsRequest] = list_prompts
+            mcp.request_handlers[types.GetPromptRequest] = get_prompt
+        logger.debug("Handlers registered based on enablement envvars.")
         asyncio.run(start_server())
     except KeyboardInterrupt:
         logger.debug("MCP server shutdown initiated by user.")
