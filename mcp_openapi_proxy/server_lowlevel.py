@@ -10,12 +10,12 @@ Configuration is controlled via environment variables:
 - API_KEY: Generic token for Bearer header.
 - STRIP_PARAM: Param name (e.g., "auth") to remove from parameters.
 - EXTRA_HEADERS: Additional headers in 'Header: Value' format, one per line.
-- CAPABILITIES_TOOLS: Set to "false" to disable tools advertising (default: true).
-- CAPABILITIES_RESOURCES: Set to "false" to disable resources advertising (default: true).
-- CAPABILITIES_PROMPTS: Set to "false" to disable prompts advertising (default: true).
+- CAPABILITIES_TOOLS: Set to "true" to enable tools advertising (default: false).
+- CAPABILITIES_RESOURCES: Set to "true" to enable resources advertising (default: false).
+- CAPABILITIES_PROMPTS: Set to "true" to enable prompts advertising (default: false).
 - ENABLE_TOOLS: Set to "false" to disable tools functionality (default: true).
-- ENABLE_RESOURCES: Set to "false" to disable resources functionality (default: true).
-- ENABLE_PROMPTS: Set to "false" to disable prompts functionality (default: true).
+- ENABLE_RESOURCES: Set to "true" to enable resources functionality (default: false).
+- ENABLE_PROMPTS: Set to "true" to enable prompts functionality (default: false).
 """
 
 import os
@@ -46,17 +46,17 @@ DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
 logger = setup_logging(debug=DEBUG)
 
 tools: List[types.Tool] = []
-# Check capability advertisement envvars (on by default)
-CAPABILITIES_TOOLS = os.getenv("CAPABILITIES_TOOLS", "true").lower() == "true"
-CAPABILITIES_RESOURCES = os.getenv("CAPABILITIES_RESOURCES", "true").lower() == "true"
-CAPABILITIES_PROMPTS = os.getenv("CAPABILITIES_PROMPTS", "true").lower() == "true"
+# Check capability advertisement envvars (off by default)
+CAPABILITIES_TOOLS = os.getenv("CAPABILITIES_TOOLS", "false").lower() == "true"
+CAPABILITIES_RESOURCES = os.getenv("CAPABILITIES_RESOURCES", "false").lower() == "true"
+CAPABILITIES_PROMPTS = os.getenv("CAPABILITIES_PROMPTS", "false").lower() == "true"
 
-# Check feature enablement envvars (on by default)
+# Check feature enablement envvars (tools on, others off by default)
 ENABLE_TOOLS = os.getenv("ENABLE_TOOLS", "true").lower() == "true"
-ENABLE_RESOURCES = os.getenv("ENABLE_RESOURCES", "true").lower() == "true"
-ENABLE_PROMPTS = os.getenv("ENABLE_PROMPTS", "true").lower() == "true"
+ENABLE_RESOURCES = os.getenv("ENABLE_RESOURCES", "false").lower() == "true"
+ENABLE_PROMPTS = os.getenv("ENABLE_PROMPTS", "false").lower() == "true"
 
-# Populate by default, mate—turn off with envvars
+# Populate only if enabled, mate
 resources: List[types.Resource] = []
 prompts: List[types.Prompt] = []
 
@@ -370,7 +370,7 @@ def run_server():
         if ENABLE_PROMPTS:
             mcp.request_handlers[types.ListPromptsRequest] = list_prompts
             mcp.request_handlers[types.GetPromptRequest] = get_prompt
-        logger.debug("Handlers registered based on enablement envvars.")
+        logger.debug("Handlers registered based on capabilities and enablement envvars.")
         asyncio.run(start_server())
     except KeyboardInterrupt:
         logger.debug("MCP server shutdown initiated by user.")
