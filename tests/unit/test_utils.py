@@ -2,13 +2,21 @@
 Unit tests for utility functions in mcp-openapi-proxy.
 """
 
-import os
-import pytest
 from mcp_openapi_proxy.utils import normalize_tool_name, detect_response_type, build_base_url, handle_auth, strip_parameters
 
 def test_normalize_tool_name():
-    assert normalize_tool_name("GET /api/v2/users") == "get_users"
-    assert normalize_tool_name("POST /users/{id}") == "post_users_id"
+    assert normalize_tool_name("GET /api/v2/users") == "get_v2_users"
+    assert normalize_tool_name("POST /users/{id}") == "post_users_by_id"
+    assert normalize_tool_name("GET /api/agent/service/list") == "get_agent_service_list"
+    assert normalize_tool_name("GET /api/agent/announcement/list") == "get_agent_announcement_list"
+    assert normalize_tool_name("GET /section/resources/{param1}.{param2}") == "get_section_resources_by_param1_param2"
+    assert normalize_tool_name("GET /resource/{param1}/{param2}-{param3}") == "get_resource_by_param1_by_param2_param3"
+    assert normalize_tool_name("GET /{param1}/resources") == "get_by_param1_resources"
+    assert normalize_tool_name("GET /resources/{param1}-{param2}.{param3}") == "get_resources_by_param1_param2_param3"
+    assert normalize_tool_name("GET /users/{id1}/{id2}") == "get_users_by_id1_by_id2"
+    assert normalize_tool_name("GET /users/user_{id}") == "get_users_user_by_id"
+    assert normalize_tool_name("GET /search+filter/results") == "get_search+filter_results"
+    assert normalize_tool_name("GET /user_profiles/active") == "get_user_profiles_active"
     assert normalize_tool_name("INVALID") == "unknown_tool"
 
 def test_detect_response_type_json():

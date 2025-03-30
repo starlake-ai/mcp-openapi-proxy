@@ -3,12 +3,12 @@ Utility functions for mcp-openapi-proxy.
 """
 
 import os
+import re
 import sys
 import json
 import logging
 import requests
 import yaml
-import jmespath
 from typing import Dict, Optional, Tuple
 from mcp import types
 
@@ -27,22 +27,40 @@ def setup_logging(debug: bool = False) -> logging.Logger:
     logger.debug("Logging initialized, all output to stderr")
     return logger
 
-def normalize_tool_name(raw_name: str) -> str:
+def normalize_tool_name(raw_name: str, max_length: int = None) -> str:
     """Convert an HTTP method and path into a normalized tool name."""
+
+    max_length = max_length or os.getenv("TOOL_NAME_MAX_LENGTH", None)
+
     try:
         method, path = raw_name.split(" ", 1)
-        method = method.lower()
-        # Take only the last meaningful part, skip prefixes like /api/v*
-        path_parts = [part for part in path.split("/") if part and not part.startswith("{")]
-        if not path_parts:
-            return "unknown_tool"
-        last_part = path_parts[-1].lower()  # Force lowercase
-        name = f"{method}_{last_part}"
-        if "{" in path:
-            name += "_id"
-        return name if name else "unknown_tool"
-    except ValueError:
-        logger.debug(f"Failed to normalize tool name: {raw_name}")
+
+        # remove common uninformative url prefixes
+        path = re.sub(r"/(api|rest|public)/?", "/", path)
+
+        url_template_pattern = re.compile(r"\{([^}]+)\}")
+        normalized_parts = []
+        for part in path.split("/"):
+            if url_template_pattern.search(part):
+                # Replace path parameters with "by_param" format
+                params = url_template_pattern.findall(part)
+                base = url_template_pattern.sub("", part)
+                part = f"{base}_by_{'_'.join(params)}"
+
+            # Clean up part and add to list
+            part = part.replace(".", "_").replace("-", "_")
+            normalized_parts.append(part)
+
+        # Combine and clean final result
+        tool_name = f"{method.lower()}_{'_'.join(normalized_parts)}"
+        # Remove repeated underscores
+        tool_name = re.sub(r"_+", "_", tool_name)
+
+        if max_length:
+            tool_name = tool_name[:max_length]
+
+        return tool_name
+    except Exception:
         return "unknown_tool"
 
 def is_tool_whitelist_set() -> bool:
