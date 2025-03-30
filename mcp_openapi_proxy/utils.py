@@ -3,18 +3,16 @@ Utility functions for mcp-openapi-proxy.
 """
 
 import os
+import re
 import sys
 import json
 import logging
 import requests
 import yaml
-import jmespath
-import re
 from typing import Dict, Optional, Tuple
 from mcp import types
 
 logger = None
-
 
 def setup_logging(debug: bool = False) -> logging.Logger:
     """Set up logging with the specified debug level."""
@@ -28,7 +26,6 @@ def setup_logging(debug: bool = False) -> logging.Logger:
     logger.setLevel(logging.DEBUG if debug else logging.INFO)
     logger.debug("Logging initialized, all output to stderr")
     return logger
-
 
 def normalize_tool_name(raw_name: str, max_length: int = None) -> str:
     """Convert an HTTP method and path into a normalized tool name."""
@@ -66,23 +63,18 @@ def normalize_tool_name(raw_name: str, max_length: int = None) -> str:
     except Exception:
         return "unknown_tool"
 
-
 def is_tool_whitelist_set() -> bool:
     """Check if TOOL_WHITELIST environment variable is set."""
     return bool(os.getenv("TOOL_WHITELIST"))
 
-
 def is_tool_whitelisted(endpoint: str) -> bool:
     """Check if an endpoint is allowed based on TOOL_WHITELIST."""
     whitelist = os.getenv("TOOL_WHITELIST")
-    logger.debug(
-        f"Checking whitelist - endpoint: {endpoint}, TOOL_WHITELIST: {whitelist}"
-    )
+    logger.debug(f"Checking whitelist - endpoint: {endpoint}, TOOL_WHITELIST: {whitelist}")
     if not whitelist:
         logger.debug("No TOOL_WHITELIST set, allowing all endpoints.")
         return True
     import re
-
     whitelist_entries = [entry.strip() for entry in whitelist.split(",")]
     for entry in whitelist_entries:
         if "{" in entry:
@@ -91,9 +83,7 @@ def is_tool_whitelisted(endpoint: str) -> bool:
             pattern = re.sub(r"\\\{[^\\\}]+\\\}", r"([^/]+)", pattern)
             pattern = "^" + pattern + "($|/.*)$"
             if re.match(pattern, endpoint):
-                logger.debug(
-                    f"Endpoint {endpoint} matches whitelist entry {entry} using regex {pattern}"
-                )
+                logger.debug(f"Endpoint {endpoint} matches whitelist entry {entry} using regex {pattern}")
                 return True
         else:
             if endpoint.startswith(entry):
@@ -101,7 +91,6 @@ def is_tool_whitelisted(endpoint: str) -> bool:
                 return True
     logger.debug(f"Endpoint {endpoint} not in whitelist - skipping.")
     return False
-
 
 def fetch_openapi_spec(url: str, retries: int = 3) -> Optional[Dict]:
     """Fetch and parse an OpenAPI specification from a URL with retries."""
@@ -125,21 +114,16 @@ def fetch_openapi_spec(url: str, retries: int = 3) -> Optional[Dict]:
                     spec = yaml.safe_load(content)
                     logger.debug(f"Parsed as YAML from {url}")
                 except yaml.YAMLError as ye:
-                    logger.error(
-                        f"YAML parsing failed: {ye}. Raw content: {content[:500]}..."
-                    )
+                    logger.error(f"YAML parsing failed: {ye}. Raw content: {content[:500]}...")
                     return None
             return spec
         except requests.RequestException as e:
             attempt += 1
             logger.warning(f"Fetch attempt {attempt}/{retries} failed: {e}")
             if attempt == retries:
-                logger.error(
-                    f"Failed to fetch spec from {url} after {retries} attempts: {e}"
-                )
+                logger.error(f"Failed to fetch spec from {url} after {retries} attempts: {e}")
                 return None
     return None
-
 
 def build_base_url(spec: Dict) -> Optional[str]:
     """Construct the base URL from the OpenAPI spec or override."""
@@ -157,16 +141,12 @@ def build_base_url(spec: Dict) -> Optional[str]:
     elif "host" in spec and "schemes" in spec:
         scheme = spec["schemes"][0] if spec["schemes"] else "https"
         return f"{scheme}://{spec['host']}{spec.get('basePath', '')}"
-    logger.error(
-        "No servers or host/schemes defined in spec and no SERVER_URL_OVERRIDE."
-    )
+    logger.error("No servers or host/schemes defined in spec and no SERVER_URL_OVERRIDE.")
     return None
-
 
 def get_tool_prefix() -> str:
     """Get the tool name prefix from TOOL_NAME_PREFIX environment variable."""
     return os.getenv("TOOL_NAME_PREFIX", "")
-
 
 def handle_auth(operation: Dict) -> Dict[str, str]:
     """Handle authentication based on environment variables and operation security."""
@@ -182,11 +162,8 @@ def handle_auth(operation: Dict) -> Dict[str, str]:
         elif auth_type == "api-key":
             key_name = os.getenv("API_AUTH_HEADER", "Authorization")
             headers[key_name] = api_key
-            logger.debug(
-                f"Using API_KEY as API-Key in header {key_name}: {api_key[:5]}..."
-            )
+            logger.debug(f"Using API_KEY as API-Key in header {key_name}: {api_key[:5]}...")
     return headers
-
 
 def strip_parameters(parameters: Dict) -> Dict:
     """Strip specified parameters from the input based on STRIP_PARAM."""
@@ -200,7 +177,6 @@ def strip_parameters(parameters: Dict) -> Dict:
     logger.debug(f"Parameters after stripping: {result}")
     return result
 
-
 def detect_response_type(response_text: str) -> Tuple[types.TextContent, str]:
     """Determine response type based on JSON validity.
     If response_text is valid JSON, return a wrapped JSON string;
@@ -209,14 +185,9 @@ def detect_response_type(response_text: str) -> Tuple[types.TextContent, str]:
     try:
         json.loads(response_text)
         wrapped_text = json.dumps({"text": response_text})
-        return types.TextContent(
-            type="text", text=wrapped_text, id=None
-        ), "JSON response"
+        return types.TextContent(type="text", text=wrapped_text, id=None), "JSON response"
     except json.JSONDecodeError:
-        return types.TextContent(
-            type="text", text=response_text.strip(), id=None
-        ), "non-JSON text"
-
+        return types.TextContent(type="text", text=response_text.strip(), id=None), "non-JSON text"
 
 def get_additional_headers() -> Dict[str, str]:
     """Parse additional headers from EXTRA_HEADERS environment variable."""
