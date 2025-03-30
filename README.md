@@ -96,6 +96,7 @@ Refer to the **Examples** section below for practical configurations tailored to
 - `DEBUG`: (Optional) Enables verbose debug logging when set to "true", "1", or "yes".
 - `EXTRA_HEADERS`: (Optional) Additional HTTP headers in "Header: Value" format (one per line) to attach to outgoing API requests.
 - `SERVER_URL_OVERRIDE`: (Optional) Overrides the base URL from the OpenAPI specification when set, useful for custom deployments.
+- `TOOL_NAME_MAX_LENGTH`: (Optional) Truncates tool names to a max length.
 - **Additional Variable:** `OPENAPI_SPEC_URL_<hash>` – a variant for unique per-test configurations (falls back to `OPENAPI_SPEC_URL`).
 
 ## Examples

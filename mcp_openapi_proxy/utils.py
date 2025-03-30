@@ -30,65 +30,40 @@ def setup_logging(debug: bool = False) -> logging.Logger:
     return logger
 
 
-def normalize_tool_name(raw_name: str) -> str:
-    """
-    Convert an HTTP method and path into a normalized tool name.
-    Drops common uninformative path parts like 'api' or 'v2'.
+def normalize_tool_name(raw_name: str, max_length: int = None) -> str:
+    """Convert an HTTP method and path into a normalized tool name."""
 
-    Examples:
-      "GET /users/{id}" -> "get_users_by_id"
-      "GET /api/users/{id}" -> "get_users_by_id"
-      "POST /api/v2/items/categories/{category}/tags/{tag}" -> "post_items_categories_by_category_tags_by_tag"
-    """
+    max_length = max_length or os.getenv("TOOL_NAME_MAX_LENGTH", None)
+
     try:
         method, path = raw_name.split(" ", 1)
-        method = method.lower()
 
-        # Filter out empty parts
-        path_parts = [part for part in path.split("/") if part]
-        if not path_parts:
-            return "unknown_tool"
+        # remove common uninformative url prefixes
+        path = re.sub(r"/(api|rest|public)/?", "/", path)
 
-        # Common uninformative path parts to exclude
-        excluded_parts = ["api", "rest", "public"]
-
-        # Process each path part
+        url_template_pattern = re.compile(r"\{([^}]+)\}")
         normalized_parts = []
+        for part in path.split("/"):
+            if url_template_pattern.search(part):
+                # Replace path parameters with "by_param" format
+                params = url_template_pattern.findall(part)
+                base = url_template_pattern.sub("", part)
+                part = f"{base}_by_{'_'.join(params)}"
 
-        for part in path_parts:
-            # Skip common uninformative path parts
-            if part.lower() in excluded_parts:
-                continue
+            # Clean up part and add to list
+            part = part.replace(".", "_").replace("-", "_")
+            normalized_parts.append(part)
 
-            if "{" not in part:
-                normalized_parts.append(part.lower())
-                continue
+        # Combine and clean final result
+        tool_name = f"{method.lower()}_{'_'.join(normalized_parts)}"
+        # Remove repeated underscores
+        tool_name = re.sub(r"_+", "_", tool_name)
 
-            # Extract all parameters from this path part
-            params = re.findall(r"\{([^}]+)\}", part)
-            if not params:
-                normalized_parts.append(part.lower())
-                continue
+        if max_length:
+            tool_name = tool_name[:max_length]
 
-            # Clean the part by removing parameters
-            clean_part = re.sub(r"\{[^}]+\}", "", part)
-
-            # If part only has parameters (or just separators)
-            if not clean_part or clean_part in [".", "-", "_"]:
-                normalized_parts.append(f"by_{'_'.join(params)}")
-            else:
-                # Handle complex parts with both text and parameters
-                # Strip any extra separators to avoid double underscores
-                base_part = (
-                    re.sub(r"[\.\-_]*\{[^}]+\}[\.\-_]*", "", part).lower().strip(".-_")
-                )
-                normalized_parts.append(f"{base_part}_by_{'_'.join(params)}")
-
-        name = f"{method}_{'_'.join(normalized_parts)}"
-        return name if name else "unknown_tool"
-    except ValueError:
-        if logger:
-            logger.debug(f"Failed to normalize tool name: {raw_name}")
+        return tool_name
+    except Exception:
         return "unknown_tool"
 
 

@@ -6,6 +6,7 @@ FastMCP Server (static tools) based on OPENAPI_SIMPLE_MODE env var.
 """
 
 import os
+import sys
 from dotenv import load_dotenv
 from mcp_openapi_proxy.utils import setup_logging
 
