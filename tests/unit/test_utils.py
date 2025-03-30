@@ -2,14 +2,7 @@
 Unit tests for utility functions in mcp-openapi-proxy.
 """
 
-from mcp_openapi_proxy.utils import (
-    normalize_tool_name,
-    detect_response_type,
-    build_base_url,
-    handle_auth,
-    strip_parameters,
-)
-
+from mcp_openapi_proxy.utils import normalize_tool_name, detect_response_type, build_base_url, handle_auth, strip_parameters
 
 def test_normalize_tool_name():
     assert normalize_tool_name("GET /api/v2/users") == "get_v2_users"
