@@ -9,8 +9,7 @@
         "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/getzep.swagger.json",
         "TOOL_WHITELIST": "/sessions",
         "API_KEY": "${GETZEP_API_KEY}",
-        "API_AUTH_TYPE": "Api-Key",
-        "TOOL_NAME_PREFIX": "zep"
+        "API_AUTH_TYPE": "Api-Key"
       }
     }
   }

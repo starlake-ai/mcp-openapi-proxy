@@ -10,8 +10,7 @@
         "SERVER_URL_OVERRIDE": "https://slack.com/api",
         "TOOL_WHITELIST": "/chat,/bots,/conversations,/reminders,/files",
         "API_KEY": "xoxb-your-bot-token-here",
-        "API_KEY_JMESPATH": "token",
-        "TOOL_NAME_PREFIX": "slack_"
+        "API_KEY_JMESPATH": "token"
       }
     }
   }

@@ -361,8 +361,7 @@ Add the following configuration to your MCP ecosystem settings:
                 "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/virustotal.openapi.json",
                 "TOOL_WHITELIST": "/sessions",
                 "API_KEY": "${VIRUSTOTAL_API_KEY}",
-                "API_AUTH_TYPE": "Api-Key",
-                "TOOL_NAME_PREFIX": "virustotal"
+                "API_AUTH_TYPE": "Api-Key"
             }
         }
     }

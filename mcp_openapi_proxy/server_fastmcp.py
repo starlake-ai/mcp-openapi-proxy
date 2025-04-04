@@ -19,7 +19,7 @@ from mcp import types
 from mcp.server.fastmcp import FastMCP
 from mcp_openapi_proxy.logging_setup import logger
 from mcp_openapi_proxy.openapi import fetch_openapi_spec, build_base_url, handle_auth
-from mcp_openapi_proxy.utils import is_tool_whitelisted, normalize_tool_name, strip_parameters, get_additional_headers, get_tool_prefix
+from mcp_openapi_proxy.utils import is_tool_whitelisted, normalize_tool_name, strip_parameters, get_additional_headers
 
 # Logger is now configured in logging_setup.py, just use it
 # logger = setup_logging(debug=os.getenv("DEBUG", "").lower() in ("true", "1", "yes"))
@@ -73,7 +73,6 @@ def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
         logger.debug("No paths found in spec.")
         return json.dumps([])
     functions = {}
-    prefix = get_tool_prefix()
     for path, path_item in paths.items():
         logger.debug(f"Processing path: {path}")
         if not path_item:
@@ -95,8 +94,6 @@ def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
                 continue
             raw_name = f"{method.upper()} {path}"
             function_name = normalize_tool_name(raw_name)
-            if prefix:
-                function_name = f"{prefix}{function_name}"
             if function_name in functions:
                 logger.debug(f"Skipping duplicate function name: {function_name}")
                 continue
@@ -241,7 +238,7 @@ def call_function(*, function_name: str, parameters: Optional[Dict] = None, env_
     function_def = None
     paths = spec.get("paths", {})
     logger.debug(f"Paths for function lookup: {list(paths.keys())}")
-    prefix = get_tool_prefix()
+    
     for path, path_item in paths.items():
         logger.debug(f"Checking path: {path}")
         for method, operation in path_item.items():
@@ -251,8 +248,6 @@ def call_function(*, function_name: str, parameters: Optional[Dict] = None, env_
                 continue
             raw_name = f"{method.upper()} {path}"
             current_function_name = normalize_tool_name(raw_name)
-            if prefix:
-                current_function_name = f"{prefix}{current_function_name}"
             logger.debug(f"Comparing {current_function_name} with {function_name}")
             if current_function_name == function_name:
                 function_def = {

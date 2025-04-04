@@ -147,9 +147,6 @@ def build_base_url(spec: Dict) -> Optional[str]:
     logger.error("No servers or host/schemes defined in spec and no SERVER_URL_OVERRIDE.")
     return None
 
-def get_tool_prefix() -> str:
-    """Get the tool name prefix from TOOL_NAME_PREFIX environment variable."""
-    return os.getenv("TOOL_NAME_PREFIX", "")
 
 def handle_auth(operation: Dict) -> Dict[str, str]:
     """Handle authentication based on environment variables and operation security."""
