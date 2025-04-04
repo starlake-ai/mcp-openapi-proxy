@@ -100,6 +100,23 @@ def fetch_openapi_spec(url: str, retries: int = 3) -> Optional[Dict]:
             if url.startswith("file://"):
                 with open(url[7:], "r") as f:
                     content = f.read()
+                spec_format = os.getenv("OPENAPI_SPEC_FORMAT", "json").lower()
+                logger.debug(f"Using {spec_format.upper()} parser based on OPENAPI_SPEC_FORMAT env var")
+                if spec_format == "yaml":
+                    import yaml
+                    try:
+                        spec = yaml.safe_load(content)
+                        logger.debug(f"Parsed as YAML from {url}")
+                    except yaml.YAMLError as ye:
+                        logger.error(f"YAML parsing failed: {ye}. Raw content: {content[:500]}...")
+                        return None
+                else:
+                    try:
+                        spec = json.loads(content)
+                        logger.debug(f"Parsed as JSON from {url}")
+                    except json.JSONDecodeError as je:
+                        logger.error(f"JSON parsing failed: {je}. Raw content: {content[:500]}...")
+                        return None
             else:
                 # Check IGNORE_SSL_SPEC env var
                 ignore_ssl_spec = os.getenv("IGNORE_SSL_SPEC", "false").lower() in ("true", "1", "yes")
@@ -108,17 +125,18 @@ def fetch_openapi_spec(url: str, retries: int = 3) -> Optional[Dict]:
                 response = requests.get(url, timeout=10, verify=verify_ssl_spec)
                 response.raise_for_status()
                 content = response.text
-            logger.debug(f"Fetched content length: {len(content)} bytes")
-            try:
-                spec = json.loads(content)
-                logger.debug(f"Parsed as JSON from {url}")
-            except json.JSONDecodeError:
+                logger.debug(f"Fetched content length: {len(content)} bytes")
                 try:
-                    spec = yaml.safe_load(content)
-                    logger.debug(f"Parsed as YAML from {url}")
-                except yaml.YAMLError as ye:
-                    logger.error(f"YAML parsing failed: {ye}. Raw content: {content[:500]}...")
-                    return None
+                    spec = json.loads(content)
+                    logger.debug(f"Parsed as JSON from {url}")
+                except json.JSONDecodeError:
+                    try:
+                        import yaml
+                        spec = yaml.safe_load(content)
+                        logger.debug(f"Parsed as YAML from {url}")
+                    except yaml.YAMLError as ye:
+                        logger.error(f"YAML parsing failed: {ye}. Raw content: {content[:500]}...")
+                        return None
             return spec
         except requests.RequestException as e:
             attempt += 1
@@ -152,17 +170,23 @@ def handle_auth(operation: Dict) -> Dict[str, str]:
     """Handle authentication based on environment variables and operation security."""
     headers = {}
     api_key = os.getenv("API_KEY")
-    auth_type = os.getenv("API_AUTH_TYPE", "Bearer").lower()
+    auth_type = os.getenv("API_AUTH_TYPE", "").lower() # Default to empty to match OpenAPI spec
+    auth_header = os.getenv("API_AUTH_HEADER", "") # Get override header if specified
+    
     if api_key:
-        if auth_type == "bearer":
-            logger.debug(f"Using API_KEY as Bearer: {api_key[:5]}...")
+        # If auth header is explicitly set, use that regardless of auth_type
+        if auth_header:
+            headers[auth_header] = api_key
+            logger.debug(f"Using explicit auth header {auth_header}: {api_key[:5]}...")
+        # Otherwise follow auth_type logic
+        elif auth_type == "bearer":
             headers["Authorization"] = f"Bearer {api_key}"
+            logger.debug(f"Using API_KEY as Bearer: {api_key[:5]}...")
         elif auth_type == "basic":
-            logger.debug("API_AUTH_TYPE is Basic, but Basic Auth not implemented yet.")
-        elif auth_type == "api-key":
-            key_name = os.getenv("API_AUTH_HEADER", "Authorization")
-            headers[key_name] = api_key
-            logger.debug(f"Using API_KEY as API-Key in header {key_name}: {api_key[:5]}...")
+            logger.warning("Basic Auth not implemented yet.")
+        else: # Default case - use API key as-is (x-apikey style)
+            headers["x-apikey"] = api_key
+            logger.debug(f"Using API_KEY as direct API key: {api_key[:5]}...")
     return headers
 
 def strip_parameters(parameters: Dict) -> Dict:

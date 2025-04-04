@@ -66,7 +66,7 @@ def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
                 }
             }
         }
-    logger.debug(f"Raw spec loaded: {json.dumps(spec, indent=2)}")
+    logger.debug(f"Raw spec loaded: {json.dumps(spec, indent=2, default=str)}")
     paths = spec.get("paths", {})
     logger.debug(f"Paths extracted from spec: {list(paths.keys())}")
     if not paths:
