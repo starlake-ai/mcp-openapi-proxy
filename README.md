@@ -335,17 +335,19 @@ After starting the service refer to the [JSON-RPC Testing](#json-rpc-testing) se
 
 ### Virustotal Example
 
-Virustotal now has its own OpenAPI specification file included in this project.
+This example demonstrates:
+- Using a YAML OpenAPI specification file
+- Overriding the default HTTP auth header with "x-apikey"
 
 #### 1. Verify the OpenAPI Specification
 
 Retrieve the Virustotal OpenAPI specification:
 
 ```bash
-curl https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/virustotal.openapi.json
+curl https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/virustotal.openapi.yml
 ```
 
-Ensure that the response is a valid OpenAPI JSON document.
+Ensure that the response is a valid OpenAPI YAML document.
 
 #### 2. Configure mcp-openapi-proxy for Virustotal
 
@@ -358,22 +360,29 @@ Add the following configuration to your MCP ecosystem settings:
             "command": "uvx",
             "args": ["mcp-openapi-proxy"],
             "env": {
-                "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/virustotal.openapi.json",
-                "TOOL_WHITELIST": "/sessions",
+                "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/virustotal.openapi.yml",
                 "API_KEY": "${VIRUSTOTAL_API_KEY}",
-                "API_AUTH_TYPE": "Api-Key"
+                "API_AUTH_HEADER": "x-apikey",
+                "API_AUTH_TYPE": "",
+                "OPENAPI_SPEC_FORMAT": "yaml"
             }
         }
     }
 }
 ```
 
+Key configuration points:
+- By default, the proxy expects a JSON specification and sends the API key with a Bearer prefix.
+- To use a YAML OpenAPI specification, include `OPENAPI_SPEC_FORMAT="yaml"`.
+- Sets `API_AUTH_HEADER` to "x-apikey" to match VirusTotal's requirements.
+- Clears `API_AUTH_TYPE` to send the API key directly without a scheme prefix.
+
 #### 3. Testing
 
 Launch the proxy with the Virustotal configuration:
 
 ```bash
-OPENAPI_SPEC_URL="https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/virustotal.openapi.json" API_KEY="your_virustotal_api_key" uvx mcp-openapi-proxy
+OPENAPI_SPEC_URL="https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/virustotal.openapi.yml" API_KEY="your_virustotal_api_key" API_AUTH_HEADER="x-apikey" API_AUTH_TYPE="" OPENAPI_SPEC_FORMAT="yaml" uvx mcp-openapi-proxy
 ```
 
 After starting the service, refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
