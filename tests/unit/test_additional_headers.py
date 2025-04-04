@@ -61,11 +61,15 @@ async def test_lowlevel_dispatcher_with_headers(mock_env, mock_requests, monkeyp
     os.environ["EXTRA_HEADERS"] = "X-Custom: Foo"
     tools.clear()
     monkeypatch.setattr("mcp_openapi_proxy.server_lowlevel.openapi_spec_data", DUMMY_SPEC)
-    tools.append(SimpleNamespace(name="get_test", inputSchema={"type": "object", "properties": {}}))
-    request = SimpleNamespace(params=SimpleNamespace(name="get_test", arguments={}))
+    # Use the mcp.types.Tool type
+    from mcp import types as mcp_types
+    tools.append(mcp_types.Tool(name="get_test", description="Test tool", inputSchema={"type": "object", "properties": {}}))
+    # Use the actual CallToolRequest type and provide method
+    from mcp.types import CallToolRequest, CallToolRequestParams
+    request = CallToolRequest(method="tools/call", params=CallToolRequestParams(name="get_test", arguments={})) # Correct method value
     with patch('mcp_openapi_proxy.server_fastmcp.fetch_openapi_spec', return_value=DUMMY_SPEC):
         result = await dispatcher_handler(request)
-    assert result.content[0].text == "Mocked response", "Dispatcher failed with headers"
+    assert result.root.content[0].text == "Mocked response", "Dispatcher failed with headers"
 
 from unittest.mock import patch
 def test_fastmcp_call_function_with_headers(mock_env, mock_requests):

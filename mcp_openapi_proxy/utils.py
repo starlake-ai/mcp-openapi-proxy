@@ -12,25 +12,37 @@ import yaml
 from typing import Dict, Optional, Tuple
 from mcp import types
 
-logger = None
+# Initialize logger directly at module level
+logger = logging.getLogger("mcp_openapi_proxy")
 
 def setup_logging(debug: bool = False) -> logging.Logger:
     """Set up logging with the specified debug level."""
-    global logger
-    logger = logging.getLogger("mcp_openapi_proxy")
+    # Logger is now initialized at module level, just configure it
     if not logger.handlers:
         handler = logging.StreamHandler(sys.stderr)
         formatter = logging.Formatter("[%(levelname)s] %(asctime)s - %(message)s")
         handler.setFormatter(formatter)
         logger.addHandler(handler)
     logger.setLevel(logging.DEBUG if debug else logging.INFO)
-    logger.debug("Logging initialized, all output to stderr")
+    logger.debug("Logging configured") # Changed message slightly
     return logger
 
-def normalize_tool_name(raw_name: str, max_length: int = None) -> str:
+# Configure logger based on DEBUG env var
+setup_logging(os.getenv("DEBUG", "").lower() in ("true", "1", "yes"))
+
+
+def normalize_tool_name(raw_name: str, max_length: Optional[int] = None) -> str:
     """Convert an HTTP method and path into a normalized tool name."""
 
-    max_length = max_length or os.getenv("TOOL_NAME_MAX_LENGTH", None)
+    # Determine effective max_length, prioritizing function argument
+    effective_max_length: Optional[int] = max_length
+    if effective_max_length is None:
+        max_length_env = os.getenv("TOOL_NAME_MAX_LENGTH")
+        if max_length_env:
+            try:
+                effective_max_length = int(max_length_env)
+            except ValueError:
+                logger.warning(f"Invalid TOOL_NAME_MAX_LENGTH env var: {max_length_env}. Ignoring.")
 
     try:
         method, path = raw_name.split(" ", 1)
@@ -56,7 +68,7 @@ def normalize_tool_name(raw_name: str, max_length: int = None) -> str:
         # Remove repeated underscores
         tool_name = re.sub(r"_+", "_", tool_name)
 
-        if max_length:
+        if effective_max_length is not None and effective_max_length > 0:
             tool_name = tool_name[:max_length]
 
         return tool_name
@@ -102,7 +114,11 @@ def fetch_openapi_spec(url: str, retries: int = 3) -> Optional[Dict]:
                 with open(url[7:], "r") as f:
                     content = f.read()
             else:
-                response = requests.get(url, timeout=10)
+                # Check IGNORE_SSL_SPEC env var
+                ignore_ssl_spec = os.getenv("IGNORE_SSL_SPEC", "false").lower() in ("true", "1", "yes")
+                verify_ssl_spec = not ignore_ssl_spec
+                logger.debug(f"Fetching spec with SSL verification: {verify_ssl_spec} (IGNORE_SSL_SPEC={ignore_ssl_spec})")
+                response = requests.get(url, timeout=10, verify=verify_ssl_spec)
                 response.raise_for_status()
                 content = response.text
             logger.debug(f"Fetched content length: {len(content)} bytes")
@@ -185,9 +201,11 @@ def detect_response_type(response_text: str) -> Tuple[types.TextContent, str]:
     try:
         json.loads(response_text)
         wrapped_text = json.dumps({"text": response_text})
-        return types.TextContent(type="text", text=wrapped_text, id=None), "JSON response"
+        # Remove id=None as it's not a valid parameter for mcp.types.TextContent
+        return types.TextContent(type="text", text=wrapped_text), "JSON response"
     except json.JSONDecodeError:
-        return types.TextContent(type="text", text=response_text.strip(), id=None), "non-JSON text"
+         # Remove id=None as it's not a valid parameter for mcp.types.TextContent
+        return types.TextContent(type="text", text=response_text.strip()), "non-JSON text"
 
 def get_additional_headers() -> Dict[str, str]:
     """Parse additional headers from EXTRA_HEADERS environment variable."""

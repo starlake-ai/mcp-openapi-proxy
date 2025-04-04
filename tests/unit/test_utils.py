@@ -1,8 +1,16 @@
 """
 Unit tests for utility functions in mcp-openapi-proxy.
 """
+import os
+import pytest
+from unittest.mock import patch, MagicMock
 
-from mcp_openapi_proxy.utils import normalize_tool_name, detect_response_type, build_base_url, handle_auth, strip_parameters
+from mcp_openapi_proxy.utils import normalize_tool_name, detect_response_type, build_base_url, handle_auth, strip_parameters, fetch_openapi_spec
+
+@pytest.fixture
+def mock_requests_get():
+    with patch('requests.get') as mock_get:
+        yield mock_get
 
 def test_normalize_tool_name():
     assert normalize_tool_name("GET /api/v2/users") == "get_v2_users"
@@ -53,6 +61,36 @@ def test_strip_parameters_with_param(monkeypatch):
     params = {"token": "abc123", "channel": "test"}
     result = strip_parameters(params)
     assert result == {"channel": "test"}
+
+def test_fetch_openapi_spec_ssl_verification_enabled(mock_requests_get):
+    """Test that SSL verification is enabled by default"""
+    mock_response = MagicMock()
+    mock_response.text = '{"test": "data"}'
+    mock_requests_get.return_value = mock_response
+
+    fetch_openapi_spec("https://example.com/spec.json")
+
+    mock_requests_get.assert_called_once_with(
+        "https://example.com/spec.json",
+        timeout=10,
+        verify=True
+    )
+
+def test_fetch_openapi_spec_ssl_verification_disabled(mock_requests_get):
+    """Test that SSL verification can be disabled via IGNORE_SSL_SPEC"""
+    mock_response = MagicMock()
+    mock_response.text = '{"test": "data"}'
+    mock_requests_get.return_value = mock_response
+
+    os.environ['IGNORE_SSL_SPEC'] = 'true'
+    fetch_openapi_spec("https://example.com/spec.json")
+    del os.environ['IGNORE_SSL_SPEC'] # Clean up env var
+
+    mock_requests_get.assert_called_once_with(
+        "https://example.com/spec.json",
+        timeout=10,
+        verify=False
+    )
 
 def test_strip_parameters_no_param():
     params = {"channel": "test"}

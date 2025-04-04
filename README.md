@@ -18,6 +18,7 @@
   - [Render Example](#render-example)
   - [Slack Example](#slack-example)
   - [GetZep Example](#getzep-example)
+  - [Virustotal Example](#virustotal-example)
   - [Notion Example](#notion-example)
   - [Asana Example](#asana-example)
 - [Troubleshooting](#troubleshooting)
@@ -277,17 +278,10 @@ Update your configuration:
 - **OPENAPI_SPEC_URL**: Slack’s OpenAPI spec URL.
 - **TOOL_WHITELIST**: Limits tools to useful endpoint groups (e.g. chat, conversations, users).
 - **API_KEY**: Your Slack bot token (e.g. `xoxb-...`, replace `<your_slack_bot_token>`).
-- **STRIP_PARAM**: Removes the token field from the request payload (as it is handled in the HTTP header).
-- **TOOL_NAME_PREFIX**: Prepends `slack_` to tool names (e.g. `slack_get_users_info`).
+- **STRIP_PARAM**: Removes the token field from the request payload.
+- **TOOL_NAME_PREFIX**: Prepends `slack_` to tool names.
 
-#### 3. Resulting Functions
-
-Example functions in FastMCP mode:
-- `slack_get_users_info`: Retrieves user info.
-- `slack_get_conversations_list`: Lists channels in the workspace.
-- `slack_post_chat_postmessage`: Posts a message to a channel.
-
-#### 4. Testing
+#### 3. Testing
 
 After starting the service refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
 
@@ -332,18 +326,58 @@ Update your configuration:
 - **OPENAPI_SPEC_URL**: Points to the project-provided GetZep Swagger spec (or use `file:///path/to/your/spec.json` for a local file).
 - **TOOL_WHITELIST**: Limits to `/sessions` endpoints.
 - **API_KEY**: Your GetZep API key.
-- **API_AUTH_TYPE**: Uses `Api-Key` for header-based authentication (overrides default `Bearer`).
-- **TOOL_NAME_PREFIX**: Prepends `getzep_` to tool names.
+- **API_AUTH_TYPE**: Uses `Api-Key` for header-based authentication.
+- **TOOL_NAME_PREFIX**: Prepends `zep_` to tool names.
 
-#### 3. Resulting Functions
-
-Example functions:
-- `getzep_post_sessions`: Adds a session.
-- `getzep_get_sessions_memory`: Retrieves session memory.
-
-#### 4. Testing
+#### 3. Testing
 
 After starting the service refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
+
+### Virustotal Example
+
+Virustotal now has its own OpenAPI specification file included in this project.
+
+#### 1. Verify the OpenAPI Specification
+
+Retrieve the Virustotal OpenAPI specification:
+
+```bash
+curl https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/virustotal.openapi.json
+```
+
+Ensure that the response is a valid OpenAPI JSON document.
+
+#### 2. Configure mcp-openapi-proxy for Virustotal
+
+Add the following configuration to your MCP ecosystem settings:
+
+```json
+{
+    "mcpServers": {
+        "virustotal": {
+            "command": "uvx",
+            "args": ["mcp-openapi-proxy"],
+            "env": {
+                "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/virustotal.openapi.json",
+                "TOOL_WHITELIST": "/sessions",
+                "API_KEY": "${VIRUSTOTAL_API_KEY}",
+                "API_AUTH_TYPE": "Api-Key",
+                "TOOL_NAME_PREFIX": "virustotal"
+            }
+        }
+    }
+}
+```
+
+#### 3. Testing
+
+Launch the proxy with the Virustotal configuration:
+
+```bash
+OPENAPI_SPEC_URL="https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/virustotal.openapi.json" API_KEY="your_virustotal_api_key" uvx mcp-openapi-proxy
+```
+
+After starting the service, refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
 
 ### Notion Example
 

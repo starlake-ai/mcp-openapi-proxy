@@ -1,0 +1,426 @@
+openapi: 3.0.0
+info:
+  title: VirusTotal API v2.0
+  description: API for scanning files, URLs, domains, and IPs. Auth via Bearer header.
+  version: 2.0
+servers:
+  - url: https://www.virustotal.com/vtapi/v2
+    description: Main VirusTotal API server
+components:
+  securitySchemes:
+    BearerAuth:
+      type: apiKey
+      in: header
+      name: Bearer
+      description: Your API key goes in the Bearer header
+  schemas:
+    FileReport:
+      type: object
+      properties:
+        response_code:
+          type: integer
+          example: 1
+        verbose_msg:
+          type: string
+          example: Scan finished, scan info embedded in this object
+        resource:
+          type: string
+          example: 99017f6eebbac24f351415dd410d522d
+        scan_id:
+          type: string
+          example: 52d3df0ed60c46f336c131bf2ca454f73bafdc4b04dfa2aea80746f5ba9e6d1c-1273894724
+        md5:
+          type: string
+          example: 99017f6eebbac24f351415dd410d522d
+        sha1:
+          type: string
+          example: 4d1740485713a2ab3a4f5822a01f645fe8387f92
+        sha256:
+          type: string
+          example: 52d3df0ed60c46f336c131bf2ca454f73bafdc4b04dfa2aea80746f5ba9e6d1c
+        scan_date:
+          type: string
+          format: date-time
+          example: 2010-05-15T03:38:44Z
+        permalink:
+          type: string
+          format: uri
+          example: https://www.virustotal.com/file/52d3df0ed60c46f336c131bf2ca454f73bafdc4b04dfa2aea80746f5ba9e6d1c/analysis/1273894724/
+        positives:
+          type: integer
+          example: 40
+        total:
+          type: integer
+          example: 40
+        scans:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              detected:
+                type: boolean
+                example: true
+              version:
+                type: string
+                example: 2010-05-14.01
+              result:
+                type: string
+                example: Trojan.Generic.3611249
+              update:
+                type: string
+                example: 20100514
+      additionalProperties: true
+      description: File scan report, extra details with allinfo (Private API only)
+    ScanResponse:
+      type: object
+      properties:
+        permalink:
+          type: string
+          format: uri
+          example: https://www.virustotal.com/file/d140c244ef892e59c7f68bd0c6f74bb711032563e2a12fa9dda5b760daecd556/analysis/1359112395/
+        resource:
+          type: string
+          example: d140c244ef892e59c7f68bd0c6f74bb711032563e2a12fa9dda5b760daecd556
+        response_code:
+          type: integer
+          example: 1
+        scan_id:
+          type: string
+          example: OGZmYjYxYjUxYWI0YTdhM2ViZWI5Zjc2MTE5ZTRiODE6MTY3ODM0ODYyNA==
+        verbose_msg:
+          type: string
+          example: Scan request successfully queued, come back later for the report
+        sha256:
+          type: string
+          example: d140c244ef892e59c7f68bd0c6f74bb711032563e2a12fa9dda5b760daecd556
+    UploadUrlResponse:
+      type: object
+      properties:
+        upload_url:
+          type: string
+          format: uri
+          example: https://www.virustotal.com/_ah/upload/?apikey=<hidden>/ALBNUaYAAAAAUQKBI1y6AfbKZLSO5QBdb2zDB0EYysh6/
+    RescanResponse:
+      type: object
+      properties:
+        response_code:
+          type: integer
+          example: 1
+        scan_id:
+          type: string
+          example: OGZmYjYxYjUxYWI0YTdhM2ViZWI5Zjc2MTE5ZTRiODE6MTY3ODM0ODYyNA==
+        permalink:
+          type: string
+          format: uri
+          example: https://www.virustotal.com/file/54bc950d46a0d1aa72048a17c8275743209e6c17bdacfc4cb9601c9ce3ec9a71/analysis/1390472785/
+        sha256:
+          type: string
+          example: 54bc950d46a0d1aa72048a17c8275743209e6c17bdacfc4cb9601c9ce3ec9a71
+        resource:
+          type: string
+          example: 7657fcb7d772448a6d8504e4b20168b8
+    UrlScanResponse:
+      type: object
+      properties:
+        response_code:
+          type: integer
+          example: 1
+        verbose_msg:
+          type: string
+          example: Scan request successfully queued, come back later for the report
+        scan_id:
+          type: string
+          example: 1db0ad7dbcec0676710ea0eaacd35d5e471d3e11944d53bcbd31f0cbd11bce31-1320752364
+        scan_date:
+          type: string
+          format: date-time
+          example: 2011-11-08T11:39:24Z
+        url:
+          type: string
+          example: http://www.virustotal.com/
+        permalink:
+          type: string
+          format: uri
+          example: http://www.virustotal.com/url/1db0ad7dbcec0676710ea0eaacd35d5e471d3e11944d53bcbd31f0cbd11bce31/analysis/1320752364/
+    CommentsResponse:
+      type: object
+      properties:
+        response_code:
+          type: integer
+          example: 1
+        verbose_msg:
+          type: string
+          example: Resource found, comments, if any, returned here
+        resource:
+          type: string
+          example: 13166fc9de263ee2c676430ae88e65040e10761c90e79347a2684476bc60e622
+        comments:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                example: 20120404132340
+              comment:
+                type: string
+                example: '[b]Bot Communication Details:[/b]\nServer DNS Name: 67.230.163.30...'
+    DomainReport:
+      type: object
+      properties:
+        response_code:
+          type: integer
+          example: 1
+        domain:
+          type: string
+          example: example.com
+        resolutions:
+          type: array
+          items:
+            type: object
+            properties:
+              ip_address:
+                type: string
+                example: 93.184.216.34
+              last_resolved:
+                type: string
+                format: date-time
+                example: 2020-01-15T00:00:00Z
+        subdomains:
+          type: array
+          items:
+            type: string
+            example: www.example.com
+      additionalProperties: true
+    IpReport:
+      type: object
+      properties:
+        response_code:
+          type: integer
+          example: 1
+        ip:
+          type: string
+          example: 93.184.216.34
+        resolutions:
+          type: array
+          items:
+            type: object
+            properties:
+              hostname:
+                type: string
+                example: example.com
+              last_resolved:
+                type: string
+                format: date-time
+                example: 2020-01-15T00:00:00Z
+        detected_urls:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+                example: http://example.com/malware
+              positives:
+                type: integer
+                example: 5
+              total:
+                type: integer
+                example: 40
+              scan_date:
+                type: string
+                format: date-time
+                example: 2020-01-15T00:00:00Z
+      additionalProperties: true
+paths:
+  /file/report:
+    get:
+      summary: Retrieve file scan report
+      parameters:
+        - name: resource
+          in: query
+          required: true
+          schema:
+            type: string
+          description: MD5, SHA-1, SHA-256, or scan_id
+        - name: allinfo
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Extra info (Private API only)
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileReport'
+        '400':
+          description: Bad request
+      security:
+        - BearerAuth: []
+  /file/scan:
+    post:
+      summary: Upload and scan a file
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: File to scan (max 32MB)
+              required:
+                - file
+      responses:
+        '200':
+          description: Scan queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanResponse'
+        '400':
+          description: Bad request
+      security:
+        - BearerAuth: []
+  /file/scan/upload_url:
+    get:
+      summary: Get URL for large file uploads
+      description: For files up to 200MB (Restricted API)
+      responses:
+        '200':
+          description: Upload URL returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadUrlResponse'
+        '400':
+          description: Bad request
+      security:
+        - BearerAuth: []
+  /file/rescan:
+    post:
+       summary: Re-scan a file
+    description: Private API only
+    requestBody:
+      required: true
+      content:
+        application/x-www-form-urlencoded:
+          schema:
+            type: object
+            properties:
+              resource:
+                type: string
+                description: MD5, SHA-1, or SHA-256 of the file
+            required:
+              - resource
+    responses:
+      '200':
+        description: Rescan queued
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RescanResponse'
+      '400':
+        description: Bad request
+    security:
+      - BearerAuth: []
+  /url/scan:
+    post:
+      summary: Scan a URL
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                url:
+                  type: string
+                  description: URL to scan
+              required:
+                - url
+      responses:
+        '200':
+          description: Scan queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UrlScanResponse'
+        '400':
+          description: Bad request
+      security:
+        - BearerAuth: []
+  /comments/get:
+    get:
+      summary: Get comments for a file or URL
+      parameters:
+        - name: resource
+          in: query
+          required: true
+          schema:
+            type: string
+          description: MD5, SHA-1, SHA-256, or URL
+        - name: before
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Datetime token for pagination
+      responses:
+        '200':
+          description: Comments returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentsResponse'
+        '400':
+          description: Bad request
+      security:
+        - BearerAuth: []
+  /domain/report:
+    get:
+      summary: Get domain report
+      parameters:
+        - name: domain
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Domain name
+      responses:
+        '200':
+          description: Domain report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DomainReport'
+        '400':
+          description: Bad request
+      security:
+        - BearerAuth: []
+  /ip-address/report:
+    get:
+      summary: Get IP address report
+      parameters:
+        - name: ip
+          in: query
+          required: true
+          schema:
+            type: string
+          description: IP address
+      responses:
+        '200':
+          description: IP report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IpReport'
+        '400':
+          description: Bad request
+      security:
+        - BearerAuth: []

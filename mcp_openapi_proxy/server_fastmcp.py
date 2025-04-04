@@ -15,7 +15,7 @@ import os
 import sys
 import json
 import requests
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from mcp import types
 from mcp.server.fastmcp import FastMCP
 from mcp_openapi_proxy.utils import setup_logging, is_tool_whitelisted, fetch_openapi_spec, build_base_url, normalize_tool_name, handle_auth, strip_parameters, get_tool_prefix, get_additional_headers
@@ -196,7 +196,7 @@ def list_functions(*, env_key: str = "OPENAPI_SPEC_URL") -> str:
     return json.dumps(list(functions.values()), indent=2)
 
 @mcp.tool()
-def call_function(*, function_name: str, parameters: dict = None, env_key: str = "OPENAPI_SPEC_URL") -> str:
+def call_function(*, function_name: str, parameters: Optional[Dict] = None, env_key: str = "OPENAPI_SPEC_URL") -> str:
     """Calls a function derived from the OpenAPI specification."""
     logger.debug(f"call_function invoked with function_name='{function_name}' and parameters={parameters}")
     logger.debug(f"API_KEY: {os.getenv('API_KEY', '<not set>')[:5] + '...' if os.getenv('API_KEY') else '<not set>'}")
@@ -273,7 +273,9 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
     headers = handle_auth(operation)
     additional_headers = get_additional_headers()
     headers = {**headers, **additional_headers}
-    parameters = strip_parameters(parameters) or {}
+    if parameters is None:
+        parameters = {}
+    parameters = strip_parameters(parameters)
     logger.debug(f"Parameters after strip: {parameters}")
     if function_def["method"] != "GET":
         headers["Content-Type"] = "application/json"
@@ -331,12 +333,17 @@ def call_function(*, function_name: str, parameters: dict = None, env_key: str =
 
     logger.debug(f"Sending request - Method: {function_def['method']}, URL: {api_url}, Headers: {headers}, Params: {request_params}, Body: {request_body}")
     try:
+        # Add SSL verification control for API calls using IGNORE_SSL_TOOLS
+        ignore_ssl_tools = os.getenv("IGNORE_SSL_TOOLS", "false").lower() in ("true", "1", "yes")
+        verify_ssl_tools = not ignore_ssl_tools
+        logger.debug(f"Sending API request with SSL verification: {verify_ssl_tools} (IGNORE_SSL_TOOLS={ignore_ssl_tools})")
         response = requests.request(
             method=function_def["method"],
             url=api_url,
             headers=headers,
             params=request_params if function_def["method"] == "GET" else None,
-            json=request_body if function_def["method"] != "GET" else None
+            json=request_body if function_def["method"] != "GET" else None,
+            verify=verify_ssl_tools
         )
         response.raise_for_status()
         logger.debug(f"API response received: {response.text}")
