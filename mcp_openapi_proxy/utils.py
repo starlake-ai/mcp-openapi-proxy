@@ -103,7 +103,6 @@ def fetch_openapi_spec(url: str, retries: int = 3) -> Optional[Dict]:
                 spec_format = os.getenv("OPENAPI_SPEC_FORMAT", "json").lower()
                 logger.debug(f"Using {spec_format.upper()} parser based on OPENAPI_SPEC_FORMAT env var")
                 if spec_format == "yaml":
-                    import yaml
                     try:
                         spec = yaml.safe_load(content)
                         logger.debug(f"Parsed as YAML from {url}")
@@ -131,7 +130,6 @@ def fetch_openapi_spec(url: str, retries: int = 3) -> Optional[Dict]:
                     logger.debug(f"Parsed as JSON from {url}")
                 except json.JSONDecodeError:
                     try:
-                        import yaml
                         spec = yaml.safe_load(content)
                         logger.debug(f"Parsed as YAML from {url}")
                     except yaml.YAMLError as ye:
@@ -170,8 +168,12 @@ def handle_auth(operation: Dict) -> Dict[str, str]:
     """Handle authentication based on environment variables and operation security."""
     headers = {}
     api_key = os.getenv("API_KEY")
-    auth_type = os.getenv("API_AUTH_TYPE", "").lower() # Default to empty to match OpenAPI spec
-    auth_header = os.getenv("API_AUTH_HEADER", "") # Get override header if specified
+    auth_type = os.getenv("API_AUTH_TYPE")
+    if auth_type:
+        auth_type = auth_type.lower()
+    else:
+        auth_type = "bearer"
+    auth_header = os.getenv("API_AUTH_HEADER", "").strip() # Get override header if specified
     
     if api_key:
         # If auth header is explicitly set, use that regardless of auth_type
