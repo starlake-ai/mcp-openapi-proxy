@@ -3,14 +3,7 @@ MCP request handlers for mcp-openapi-proxy.
 """
 
 import os
-import sys
-import json
-import asyncio
-import requests
 from typing import Any, Dict, List, Union
-from types import SimpleNamespace
-from pydantic import AnyUrl
-import anyio
 
 from mcp import types
 from mcp.server.models import InitializationOptions
