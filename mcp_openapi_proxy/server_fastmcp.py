@@ -18,9 +18,12 @@ import requests
 from typing import Dict, Any, Optional
 from mcp import types
 from mcp.server.fastmcp import FastMCP
-from mcp_openapi_proxy.utils import setup_logging, is_tool_whitelisted, fetch_openapi_spec, build_base_url, normalize_tool_name, handle_auth, strip_parameters, get_tool_prefix, get_additional_headers
+from mcp_openapi_proxy.logging_setup import setup_logging, logger # Import logger directly too
+from mcp_openapi_proxy.openapi import fetch_openapi_spec, build_base_url, handle_auth
+from mcp_openapi_proxy.utils import is_tool_whitelisted, normalize_tool_name, strip_parameters, get_tool_prefix, get_additional_headers
 
-logger = setup_logging(debug=os.getenv("DEBUG", "").lower() in ("true", "1", "yes"))
+# Logger is now configured in logging_setup.py, just use it
+# logger = setup_logging(debug=os.getenv("DEBUG", "").lower() in ("true", "1", "yes"))
 
 logger.debug(f"Server CWD: {os.getcwd()}")
 logger.debug(f"Server sys.path: {sys.path}")

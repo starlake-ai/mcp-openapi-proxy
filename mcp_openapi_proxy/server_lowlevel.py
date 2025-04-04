@@ -40,7 +40,6 @@ from mcp.types import (
 )
 from mcp.server.stdio import stdio_server
 from mcp_openapi_proxy.utils import (
-    setup_logging,
     normalize_tool_name,
     is_tool_whitelisted,
     fetch_openapi_spec,
@@ -51,8 +50,7 @@ from mcp_openapi_proxy.utils import (
     get_additional_headers
 )
 
-DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
-logger = setup_logging(debug=DEBUG)
+from mcp_openapi_proxy.logging_setup import logger
 
 tools: List[types.Tool] = []
 # Check capability advertisement envvars (off by default)
