@@ -439,21 +439,29 @@ def run_server():
             logger.critical("Failed to fetch or parse OpenAPI specification from OPENAPI_SPEC_URL.")
             sys.exit(1)
         logger.debug("OpenAPI specification fetched successfully.")
+        
+        handlers = {}
         if ENABLE_TOOLS:
             register_functions(openapi_spec_data)
-        logger.debug(f"Tools after registration: {[tool.name for tool in tools]}")
-        if ENABLE_TOOLS and not tools:
-            logger.critical("No valid tools registered. Shutting down.")
-            sys.exit(1)
-        if ENABLE_TOOLS:
-            mcp.request_handlers[types.ListToolsRequest] = list_tools
-            mcp.request_handlers[types.CallToolRequest] = dispatcher_handler
+            logger.debug(f"Tools after registration: {[tool.name for tool in tools]}")
+            if not tools:
+                logger.critical("No valid tools registered. Shutting down.")
+                sys.exit(1)
+            handlers.update({
+                types.ListToolsRequest: list_tools,
+                types.CallToolRequest: dispatcher_handler
+            })
         if ENABLE_RESOURCES:
-            mcp.request_handlers[types.ListResourcesRequest] = list_resources
-            mcp.request_handlers[types.ReadResourceRequest] = read_resource
+            handlers.update({
+                types.ListResourcesRequest: list_resources,
+                types.ReadResourceRequest: read_resource
+            })
         if ENABLE_PROMPTS:
-            mcp.request_handlers[types.ListPromptsRequest] = list_prompts
-            mcp.request_handlers[types.GetPromptRequest] = get_prompt
+            handlers.update({
+                types.ListPromptsRequest: list_prompts,
+                types.GetPromptRequest: get_prompt
+            })
+        mcp.request_handlers.update(handlers)
         logger.debug("Handlers registered based on capabilities and enablement envvars.")
         asyncio.run(start_server())
     except KeyboardInterrupt:
