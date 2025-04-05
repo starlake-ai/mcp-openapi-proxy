@@ -337,9 +337,11 @@ After starting the service refer to the [JSON-RPC Testing](#json-rpc-testing) se
 
 ### Virustotal Example
 
+![image](https://github.com/user-attachments/assets/d1760e58-a299-4004-9593-6dbaf3b685a1)
+
 This example demonstrates:
 - Using a YAML OpenAPI specification file
-- Overriding the default HTTP auth header with "x-apikey"
+- Using custom HTTP auth header, "x-apikey"
 
 #### 1. Verify the OpenAPI Specification
 
