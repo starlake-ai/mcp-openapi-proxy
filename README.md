@@ -98,7 +98,9 @@ Refer to the **Examples** section below for practical configurations tailored to
 - `EXTRA_HEADERS`: (Optional) Additional HTTP headers in "Header: Value" format (one per line) to attach to outgoing API requests.
 - `SERVER_URL_OVERRIDE`: (Optional) Overrides the base URL from the OpenAPI specification when set, useful for custom deployments.
 - `TOOL_NAME_MAX_LENGTH`: (Optional) Truncates tool names to a max length.
-- **Additional Variable:** `OPENAPI_SPEC_URL_<hash>` – a variant for unique per-test configurations (falls back to `OPENAPI_SPEC_URL`).
+- Additional Variable: `OPENAPI_SPEC_URL_<hash>` – a variant for unique per-test configurations (falls back to `OPENAPI_SPEC_URL`).
+- `IGNORE_SSL_SPEC`: (Optional) Set to `true` to disable SSL certificate verification when fetching the OpenAPI spec.
+- `IGNORE_SSL_TOOLS`: (Optional) Set to `true` to disable SSL certificate verification for API requests made by tools.
 
 ## Examples
 
@@ -235,7 +237,7 @@ Launch the proxy with your Render configuration:
 OPENAPI_SPEC_URL="https://api-docs.render.com/openapi/6140fb3daeae351056086186" TOOL_WHITELIST="/services,/maintenance" API_KEY="your_render_token_here" uvx mcp-openapi-proxy
 ```
 
-After starting the service refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
+Then refer to the [JSON-RPC Testing](#json-rpc-testing) section for instructions on listing resources and tools.
 
 ### Slack Example
 
@@ -361,9 +363,7 @@ Add the following configuration to your MCP ecosystem settings:
             "args": ["mcp-openapi-proxy"],
             "env": {
                 "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/virustotal.openapi.yml",
-                "API_KEY": "${VIRUSTOTAL_API_KEY}",
-                "API_AUTH_HEADER": "x-apikey",
-                "API_AUTH_TYPE": "",
+                "EXTRA_HEADERS": "x-apikey: ${VIRUSTOTAL_API_KEY}",
                 "OPENAPI_SPEC_FORMAT": "yaml"
             }
         }
@@ -374,8 +374,7 @@ Add the following configuration to your MCP ecosystem settings:
 Key configuration points:
 - By default, the proxy expects a JSON specification and sends the API key with a Bearer prefix.
 - To use a YAML OpenAPI specification, include `OPENAPI_SPEC_FORMAT="yaml"`.
-- Sets `API_AUTH_HEADER` to "x-apikey" to match VirusTotal's requirements.
-- Clears `API_AUTH_TYPE` to send the API key directly without a scheme prefix.
+- Note: VirusTotal requires a special authentication header; EXTRA_HEADERS is used to transmit the API key as "x-apikey: ${VIRUSTOTAL_API_KEY}".
 
 #### 3. Testing
 
@@ -475,15 +474,13 @@ Add the following configuration to your MCP ecosystem settings:
 }
 ```
 
-#### 3. Testing
-
 Before running integration tests, ensure you have a valid `ASANA_API_KEY` set in your environment (e.g. in your .env file). Then start the proxy with:
 
 ```bash
 ASANA_API_KEY="<your_asana_api_key>" OPENAPI_SPEC_URL="https://raw.githubusercontent.com/Asana/openapi/refs/heads/master/defs/asana_oas.yaml" SERVER_URL_OVERRIDE="https://app.asana.com/api/1.0" TOOL_WHITELIST="/workspaces,/tasks,/projects,/users" uvx mcp-openapi-proxy
 ```
 
-Use MCP tools (via JSON-RPC messages or client libraries) to interact with the Asana endpoints, such as listing workspaces, tasks, and projects, as demonstrated in the integration tests.
+Use MCP tools (via JSON-RPC messages or client libraries) to interact with the Asana endpoints.
 
 ## Troubleshooting
 
@@ -498,29 +495,9 @@ For alternative testing you can interact with the MCP server via JSON-RPC. After
 Expected response:
 
 ```json
-{"jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2024-11-05","capabilities":{"experimental":{},"prompts":{"listChanged":false},"resources":{"subscribe":false,"listChanged":false},"tools":{"listChanged":false}},"serverInfo":{"name":"sqlite","version":"0.1.0"}}}
-```
-
-Then paste these follow-up messages:
-
-```json
-{"method":"notifications/initialized","jsonrpc":"2.0"}
-{"method":"resources/list","params":{},"jsonrpc":"2.0","id":1}
-{"method":"tools/list","params":{},"jsonrpc":"2.0","id":2}
-```
-
-- **Missing OPENAPI_SPEC_URL:** Ensure it’s set to a valid OpenAPI URL or local file path.
-- **Invalid Specification:** Verify that the OpenAPI document meets standards.
-- **Tool Filtering Issues:** Check that `TOOL_WHITELIST` matches the desired endpoints.
-- **Authentication Errors:** Confirm that `API_KEY` and `API_AUTH_TYPE` are configured correctly.
-- **Logging:** Set `DEBUG=true` for detailed logs.
-
-To run the server directly:
-
-```bash
-uvx mcp-openapi-proxy
+{"jsonrpc": "2.0", "id": 0, "result": {"capabilities": {...}}}
 ```
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+[MIT License](LICENSE)
