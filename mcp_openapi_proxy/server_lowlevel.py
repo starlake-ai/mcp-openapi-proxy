@@ -231,6 +231,7 @@ async def list_tools(request: types.ListToolsRequest) -> types.ListToolsResult:
 async def list_resources(request: types.ListResourcesRequest) -> types.ListResourcesResult:
     logger.debug("Handling list_resources request")
     from pydantic import AnyUrl
+    from types import SimpleNamespace
     if not resources:
         logger.debug("Resources empty; populating default resource")
         resources.append(
@@ -241,8 +242,11 @@ async def list_resources(request: types.ListResourcesRequest) -> types.ListResou
             )
         )
     logger.debug(f"Resources list length: {len(resources)}")
-    return {"root": {"resources": resources}}
-    return types.ListResourcesResult(resources=resources)
+    class ResourcesHolder:
+        pass
+    result = ResourcesHolder()
+    result.resources = resources
+    return result
 
 
 async def read_resource(request: types.ReadResourceRequest) -> types.ReadResourceResult:
