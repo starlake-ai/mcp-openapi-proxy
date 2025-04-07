@@ -4,7 +4,8 @@ import os
 import requests
 import asyncio
 from types import SimpleNamespace
-from mcp_openapi_proxy.server_lowlevel import register_functions, tools, dispatcher_handler
+from mcp_openapi_proxy.handlers import register_functions
+from mcp_openapi_proxy.server_lowlevel import tools, dispatcher_handler
 import mcp_openapi_proxy.utils as utils
 
 class TestParameterSubstitution(unittest.TestCase):
@@ -93,7 +94,7 @@ class TestParameterSubstitution(unittest.TestCase):
                 return DummyResponse(url)
             requests.request = dummy_request_fn
             try:
-                asyncio.run(dispatcher_handler(dummy_request))
+                asyncio.run(dispatcher_handler(dummy_request))  # type: ignore
             finally:
                 requests.request = original_request
 

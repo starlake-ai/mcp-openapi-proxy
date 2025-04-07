@@ -1,5 +1,6 @@
 import unittest
-from mcp_openapi_proxy.server_lowlevel import register_functions, tools
+from mcp_openapi_proxy.openapi import register_functions
+from mcp_openapi_proxy.server_lowlevel import tools
 from mcp_openapi_proxy.utils import normalize_tool_name
 
 class TestInputSchemaGeneration(unittest.TestCase):

@@ -151,6 +151,9 @@ def register_functions(spec: Dict) -> List[types.Tool]:
             except Exception as e:
                 logger.error(f"Error registering function for {method.upper()} {path}: {e}", exc_info=True)
     logger.debug(f"Registered {len(tools)} functions from OpenAPI spec.")
+    from . import server_lowlevel
+    server_lowlevel.tools.clear()
+    server_lowlevel.tools.extend(tools)
     return tools
 
 def lookup_operation_details(function_name: str, spec: Dict) -> Union[Dict, None]:

@@ -15,13 +15,13 @@ def mock_env(monkeypatch):
 def test_lowlevel_list_prompts(mock_env):
     request = SimpleNamespace(params=SimpleNamespace())
     result = asyncio.run(list_prompts(request))
-    assert len(result.root.prompts) > 0, "Expected at least one prompt"
-    assert any(p.name == "summarize_spec" for p in result.root.prompts), "summarize_spec not found"
+    assert len(result.prompts) > 0, "Expected at least one prompt"
+    assert any(p.name == "summarize_spec" for p in result.prompts), "summarize_spec not found"
 
 def test_lowlevel_get_prompt_valid(mock_env):
     request = SimpleNamespace(params=SimpleNamespace(name="summarize_spec", arguments={}))
     result = asyncio.run(get_prompt(request))
-    assert "blueprint" in result.root.messages[0].content.text, "Expected 'blueprint' in prompt response"
+    assert "blueprint" in result.messages[0].content.text, "Expected 'blueprint' in prompt response"
 
 @pytest.mark.skip(reason="FastMCP tool list issue, revisit later")
 def test_fastmcp_list_prompts(mock_env):

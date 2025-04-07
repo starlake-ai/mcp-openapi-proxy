@@ -4,7 +4,8 @@ Needs RENDER_API_KEY in .env to run.
 """
 import os
 import pytest
-from mcp_openapi_proxy.server_lowlevel import fetch_openapi_spec, register_functions, tools, openapi_spec_data
+from mcp_openapi_proxy.server_lowlevel import fetch_openapi_spec, tools, openapi_spec_data
+from mcp_openapi_proxy.handlers import register_functions
 from mcp_openapi_proxy.utils import setup_logging
 
 @pytest.fixture

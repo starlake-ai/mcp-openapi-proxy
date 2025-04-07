@@ -66,16 +66,16 @@ class TestMcpTools(unittest.TestCase):
     def test_list_resources_server_lowlevel(self):
         request = SimpleNamespace(params=SimpleNamespace())  # type: ignore
         result = asyncio.run(server_lowlevel.list_resources(request)) # type: ignore
-        self.assertTrue(hasattr(result.root, "resources"), "Result has no attribute 'resources'")
-        self.assertGreaterEqual(len(result.root.resources), 1)
-        self.assertEqual(result.root.resources[0].name, "spec_file")
+        self.assertTrue(hasattr(result, "resources"), "Result has no attribute 'resources'")
+        self.assertGreaterEqual(len(result.resources), 1)
+        self.assertEqual(result.resources[0].name, "spec_file")
 
     def test_list_prompts_server_lowlevel(self):
         request = SimpleNamespace(params=SimpleNamespace())  # type: ignore
         result = asyncio.run(server_lowlevel.list_prompts(request))  # type: ignore
-        self.assertTrue(hasattr(result.root, "prompts"), "Result has no attribute 'prompts'")
-        self.assertGreaterEqual(len(result.root.prompts), 1)
-        prompt_names = [prompt.name for prompt in result.root.prompts]
+        self.assertTrue(hasattr(result, "prompts"), "Result has no attribute 'prompts'")
+        self.assertGreaterEqual(len(result.prompts), 1)
+        prompt_names = [prompt.name for prompt in result.prompts]
         self.assertIn("summarize_spec", prompt_names)
 
     @pytest.mark.skip(reason="Failing due to prompt response mismatch, revisit later")
@@ -83,9 +83,9 @@ class TestMcpTools(unittest.TestCase):
         params = SimpleNamespace(name="summarize_spec", arguments={})  # type: ignore
         request = SimpleNamespace(params=params)  # type: ignore
         result = asyncio.run(server_lowlevel.get_prompt(request))  # type: ignore
-        self.assertTrue(hasattr(result.root, "messages"), "Result has no attribute 'messages'")
-        self.assertIsInstance(result.root.messages, list)
-        msg = result.root.messages[0]
+        self.assertTrue(hasattr(result, "messages"), "Result has no attribute 'messages'")
+        self.assertIsInstance(result.messages, list)
+        msg = result.messages[0]
         content_text = msg.content.get("text", "") if isinstance(msg.content, dict) else ""
         self.assertIn("blueprint", content_text, f"Expected 'blueprint' in message text, got: {content_text}")
 
