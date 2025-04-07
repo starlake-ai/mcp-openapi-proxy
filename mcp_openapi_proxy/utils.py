@@ -168,27 +168,17 @@ def handle_auth(operation: Dict) -> Dict[str, str]:
     """Handle authentication based on environment variables and operation security."""
     headers = {}
     api_key = os.getenv("API_KEY")
-    auth_type = os.getenv("API_AUTH_TYPE")
-    if auth_type:
-        auth_type = auth_type.lower()
-    else:
-        auth_type = "bearer"
-    auth_header = os.getenv("API_AUTH_HEADER", "").strip() # Get override header if specified
-    
+    auth_type = os.getenv("API_AUTH_TYPE", "Bearer").lower()
     if api_key:
-        # If auth header is explicitly set, use that regardless of auth_type
-        if auth_header:
-            headers[auth_header] = api_key
-            logger.debug(f"Using explicit auth header {auth_header}: {api_key[:5]}...")
-        # Otherwise follow auth_type logic
-        elif auth_type == "bearer":
-            headers["Authorization"] = f"Bearer {api_key}"
+        if auth_type == "bearer":
             logger.debug(f"Using API_KEY as Bearer: {api_key[:5]}...")
+            headers["Authorization"] = f"Bearer {api_key}"
         elif auth_type == "basic":
-            logger.warning("Basic Auth not implemented yet.")
-        else: # Default case - use API key as-is (x-apikey style)
-            headers["x-apikey"] = api_key
-            logger.debug(f"Using API_KEY as direct API key: {api_key[:5]}...")
+            logger.debug("API_AUTH_TYPE is Basic, but Basic Auth not implemented yet.")
+        elif auth_type == "api-key":
+            key_name = os.getenv("API_AUTH_HEADER", "Authorization")
+            headers[key_name] = api_key
+            logger.debug(f"Using API_KEY as API-Key in header {key_name}: {api_key[:5]}...")
     return headers
 
 def strip_parameters(parameters: Dict) -> Dict:
