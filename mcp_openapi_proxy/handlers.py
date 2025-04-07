@@ -42,7 +42,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> Any:
         if not tool:
             logger.error(f"Unknown function requested: {function_name}")
             result = types.CallToolResult(content=[types.TextContent(type="text", text="Unknown function requested")], isError=False)
-            return SimpleNamespace(root=result)  # Wrap result
+            return result  # Wrap result
         arguments = request.params.arguments or {}
         logger.debug(f"Raw arguments before processing: {arguments}")
 
@@ -52,7 +52,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> Any:
         if not operation_details:
             logger.error(f"Could not find OpenAPI operation for function: {function_name}")
             result = types.CallToolResult(content=[types.TextContent(type="text", text=f"Could not find OpenAPI operation for function: {function_name}")], isError=False)
-            return SimpleNamespace(root=result)  # Wrap result
+            return result  # Wrap result
 
         operation = operation_details['operation']
         operation['method'] = operation_details['method']
@@ -75,13 +75,13 @@ async def dispatcher_handler(request: types.CallToolRequest) -> Any:
         except KeyError as e:
             logger.error(f"Missing parameter for substitution: {e}")
             result = types.CallToolResult(content=[types.TextContent(type="text", text=f"Missing parameter: {e}")], isError=False)
-            return SimpleNamespace(root=result)  # Wrap result
+            return result  # Wrap result
 
         base_url = build_base_url(openapi_spec_data)
         if not base_url:
             logger.critical("Failed to construct base URL from spec or SERVER_URL_OVERRIDE.")
             result = types.CallToolResult(content=[types.TextContent(type="text", text="No base URL defined in spec or SERVER_URL_OVERRIDE")], isError=False)
-            return SimpleNamespace(root=result)  # Wrap result
+            return result  # Wrap result
 
         api_url = f"{base_url.rstrip('/')}/{path.lstrip('/')}"
         request_params = {}
@@ -102,7 +102,7 @@ async def dispatcher_handler(request: types.CallToolRequest) -> Any:
                 if missing_required:
                     logger.error(f"Missing required path parameters: {missing_required}")
                     result = types.CallToolResult(content=[types.TextContent(type="text", text=f"Missing required path parameters: {missing_required}")], isError=False)
-                    return SimpleNamespace(root=result)  # Wrap result
+                    return result  # Wrap result
             if method == "GET":
                 request_params = parameters
             else:
@@ -136,22 +136,22 @@ async def dispatcher_handler(request: types.CallToolRequest) -> Any:
         except requests.exceptions.RequestException as e:
             logger.error(f"API request failed: {e}")
             result = types.CallToolResult(content=[types.TextContent(type="text", text=str(e))], isError=False)
-            return SimpleNamespace(root=result)  # Wrap result
+            return result  # Wrap result
         logger.debug(f"Response content type: {content.type}")
         logger.debug(f"Response sent to client: {content.text}")
         result = types.CallToolResult(content=final_content, isError=False)  # type: ignore
-        return SimpleNamespace(root=result)  # Wrap result
+        return result  # Wrap result
     except Exception as e:
         logger.error(f"Unhandled exception in dispatcher_handler: {e}", exc_info=True)
         result = types.CallToolResult(content=[types.TextContent(type="text", text=f"Internal error: {str(e)}")], isError=False)
-        return SimpleNamespace(root=result)  # Wrap result
+        return result  # Wrap result
 
 async def list_tools(request: types.ListToolsRequest) -> Any:
     """Return a list of registered tools."""
     logger.debug("Handling list_tools request - start")
     logger.debug(f"Tools list length: {len(tools)}")
     result = types.ListToolsResult(tools=tools)
-    return SimpleNamespace(root=result)  # Wrap result
+    return result  # Wrap result
 
 async def list_resources(request: types.ListResourcesRequest) -> Any:
     """Return a list of registered resources."""
@@ -167,7 +167,7 @@ async def list_resources(request: types.ListResourcesRequest) -> Any:
         )
     logger.debug(f"Resources list length: {len(resources)}")
     result = types.ListResourcesResult(resources=resources)
-    return SimpleNamespace(root=result)  # Wrap result
+    return result  # Wrap result
 
 async def read_resource(request: types.ReadResourceRequest) -> Any:
     """Read a specific resource identified by its URI."""
@@ -187,7 +187,7 @@ async def read_resource(request: types.ReadResourceRequest) -> Any:
                         uri=AnyUrl(str(request.params.uri))
                     )
                 ])
-                return SimpleNamespace(root=result)  # Wrap result
+                return result  # Wrap result
             logger.debug("Fetching spec...")
             spec_data = fetch_openapi_spec(openapi_url)
         else:
@@ -202,7 +202,7 @@ async def read_resource(request: types.ReadResourceRequest) -> Any:
                     uri=AnyUrl(str(request.params.uri))
                 )
             ])
-            return SimpleNamespace(root=result)  # Wrap result
+            return result  # Wrap result
         logger.debug("Dumping spec to JSON...")
         spec_json = json.dumps(spec_data, indent=2)
         logger.debug(f"Forcing spec JSON return: {spec_json[:50]}...")
@@ -223,14 +223,14 @@ async def read_resource(request: types.ReadResourceRequest) -> Any:
                 uri=request.params.uri
             )
         ])
-        return SimpleNamespace(root=result)  # Wrap result
+        return result  # Wrap result
 
 async def list_prompts(request: types.ListPromptsRequest) -> Any:
     """Return a list of registered prompts."""
     logger.debug("Handling list_prompts request")
     logger.debug(f"Prompts list length: {len(prompts)}")
     result = types.ListPromptsResult(prompts=prompts)
-    return SimpleNamespace(root=result)  # Wrap result
+    return result  # Wrap result
 
 async def get_prompt(request: types.GetPromptRequest) -> Any:
     """Return a specific prompt by name."""
@@ -241,16 +241,16 @@ async def get_prompt(request: types.GetPromptRequest) -> Any:
         result = types.GetPromptResult(messages=[
             types.PromptMessage(role="assistant", content=types.TextContent(type="text", text="Prompt not found"))
         ])
-        return SimpleNamespace(root=result)  # Wrap result
+        return result  # Wrap result
     try:
         default_text = "This OpenAPI spec defines endpoints, parameters, and responses—a blueprint for developers to integrate effectively."
         result = types.GetPromptResult(messages=[
             types.PromptMessage(role="assistant", content=types.TextContent(type="text", text=default_text))
         ])
-        return SimpleNamespace(root=result)
+        return result
     except Exception as e:
         logger.error(f"Error generating prompt: {e}", exc_info=True)
         result = types.GetPromptResult(messages=[
             types.PromptMessage(role="assistant", content=types.TextContent(type="text", text=f"Prompt error: {str(e)}"))
         ])
-        return SimpleNamespace(root=result)
+        return result
