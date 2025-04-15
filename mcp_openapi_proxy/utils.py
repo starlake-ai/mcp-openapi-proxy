@@ -64,7 +64,15 @@ def normalize_tool_name(raw_name: str, max_length: Optional[int] = None) -> str:
             tool_name = f"{tool_name_prefix}{tool_name}"
 
         if effective_max_length is not None and effective_max_length > 0:
-            tool_name = tool_name[:effective_max_length]
+            if len(tool_name) > effective_max_length:
+                logger.warning(f"Tool name '{tool_name}' exceeds {effective_max_length} chars; truncating.")
+                tool_name = tool_name[:effective_max_length]
+        
+        # Protocol-mandated hard limit for tool names (not user-configurable)
+        DEFAULT_TOOL_NAME_MAX_LENGTH = 64
+        if len(tool_name) > DEFAULT_TOOL_NAME_MAX_LENGTH:
+            logger.error(f"Tool name '{tool_name}' exceeds protocol limit of {DEFAULT_TOOL_NAME_MAX_LENGTH} chars; truncating.")
+            tool_name = tool_name[:DEFAULT_TOOL_NAME_MAX_LENGTH]
 
         return tool_name
     except Exception:
