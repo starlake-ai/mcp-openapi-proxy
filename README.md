@@ -22,6 +22,7 @@
   - [Notion Example](#notion-example)
   - [Asana Example](#asana-example)
   - [APIs.guru Example](#apisguru-example)
+  - [NetBox Example](#netbox-example)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
 
@@ -526,6 +527,51 @@ OPENAPI_SPEC_URL="https://raw.githubusercontent.com/APIs-guru/openapi-directory/
 ```
 
 You can then use the MCP ecosystem to list and invoke tools such as `listAPIs`, `getMetrics`, and `getProviders` that are defined in the APIs.guru directory.
+
+### NetBox Example
+
+NetBox is an open-source IP address management (IPAM) and data center infrastructure management (DCIM) tool. This example demonstrates how to use mcp-openapi-proxy to expose the NetBox API as MCP tools.
+
+#### 1. Verify the OpenAPI Specification
+
+Retrieve the NetBox OpenAPI specification:
+
+```bash
+curl https://raw.githubusercontent.com/APIs-guru/openapi-directory/refs/heads/main/APIs/netbox.dev/3.4/openapi.yaml
+```
+
+Ensure the response is a valid OpenAPI YAML document.
+
+#### 2. Configure mcp-openapi-proxy for NetBox
+
+Add the following configuration to your MCP ecosystem settings:
+
+```json
+{
+    "mcpServers": {
+        "netbox": {
+            "command": "uvx",
+            "args": ["mcp-openapi-proxy"],
+            "env": {
+                "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/APIs-guru/openapi-directory/refs/heads/main/APIs/netbox.dev/3.4/openapi.yaml",
+                "API_KEY": "${NETBOX_API_KEY}"
+            }
+        }
+    }
+}
+```
+
+*Note: Most NetBox API endpoints require authentication. Set `NETBOX_API_KEY` in your environment or `.env` file with a valid token.*
+
+#### 3. Testing
+
+Start the service with:
+
+```bash
+OPENAPI_SPEC_URL="https://raw.githubusercontent.com/APIs-guru/openapi-directory/refs/heads/main/APIs/netbox.dev/3.4/openapi.yaml" API_KEY="$NETBOX_API_KEY" uvx mcp-openapi-proxy
+```
+
+You can then use the MCP ecosystem to list and invoke tools for endpoints like `/dcim/devices/` and `/ipam/ip-addresses/`.
 
 ## Troubleshooting
 
