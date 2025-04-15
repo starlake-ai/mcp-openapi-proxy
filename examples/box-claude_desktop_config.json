@@ -1,0 +1,4 @@
+{
+  "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/APIs-guru/openapi-directory/refs/heads/main/APIs/box.com/2.0.0/openapi.yaml",
+  "API_KEY": "${BOX_API_KEY}"
+}

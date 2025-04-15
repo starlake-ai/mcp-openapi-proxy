@@ -23,6 +23,7 @@
   - [Asana Example](#asana-example)
   - [APIs.guru Example](#apisguru-example)
   - [NetBox Example](#netbox-example)
+  - [Box API Example](#box-api-example)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
 
@@ -478,13 +479,17 @@ Add the following configuration to your MCP ecosystem settings:
 }
 ```
 
-Before running integration tests, ensure you have a valid `ASANA_API_KEY` set in your environment (e.g. in your .env file). Then start the proxy with:
+*Note: Most Asana API endpoints require authentication. Set `ASANA_API_KEY` in your environment or `.env` file with a valid token.*
+
+#### 3. Testing
+
+Start the service with:
 
 ```bash
 ASANA_API_KEY="<your_asana_api_key>" OPENAPI_SPEC_URL="https://raw.githubusercontent.com/Asana/openapi/refs/heads/master/defs/asana_oas.yaml" SERVER_URL_OVERRIDE="https://app.asana.com/api/1.0" TOOL_WHITELIST="/workspaces,/tasks,/projects,/users" uvx mcp-openapi-proxy
 ```
 
-Use MCP tools (via JSON-RPC messages or client libraries) to interact with the Asana endpoints.
+You can then use the MCP ecosystem to list and invoke tools for endpoints like `/dcim/devices/` and `/ipam/ip-addresses/`.
 
 ### APIs.guru Example
 
@@ -572,6 +577,30 @@ OPENAPI_SPEC_URL="https://raw.githubusercontent.com/APIs-guru/openapi-directory/
 ```
 
 You can then use the MCP ecosystem to list and invoke tools for endpoints like `/dcim/devices/` and `/ipam/ip-addresses/`.
+
+### Box API Example
+
+You can integrate the Box Platform API using your own developer token for authenticated access to your Box account. This example demonstrates how to expose Box API endpoints as MCP tools.
+
+#### Example config: `examples/box-claude_desktop_config.json`
+```json
+{
+  "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/APIs-guru/openapi-directory/refs/heads/main/APIs/box.com/2.0.0/openapi.yaml",
+  "API_KEY": "${BOX_API_KEY}"
+}
+```
+
+- Set your Box developer token as an environment variable in `.env`:
+  ```
+  BOX_API_KEY=your_box_developer_token
+  ```
+
+- Or run the proxy with a one-liner:
+  ```bash
+  OPENAPI_SPEC_URL="https://raw.githubusercontent.com/APIs-guru/openapi-directory/refs/heads/main/APIs/box.com/2.0.0/openapi.yaml" API_KEY="$BOX_API_KEY" uvx mcp-openapi-proxy
+  ```
+
+You can now use the MCP ecosystem to list and invoke Box API tools. For integration tests, see `tests/integration/test_box_integration.py`.
 
 ## Troubleshooting
 
