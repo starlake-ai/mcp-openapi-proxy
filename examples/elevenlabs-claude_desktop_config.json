@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "elevenlabs": {
+      "command": "uvx",
+      "args": ["mcp-openapi-proxy"],
+      "env": {
+        "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/APIs-guru/openapi-directory/refs/heads/main/APIs/elevenlabs.io/1.0/openapi.yaml",
+        "API_KEY": "${ELEVENLABS_API_KEY}"
+      }
+    }
+  }
+}
