@@ -25,10 +25,11 @@ dependencies = [
 [project.scripts]
 mcp-openapi-proxy = "mcp_openapi_proxy:main"  # Correct entry pointing to __init__.py:main
 
-[dependency-groups]
+[project.optional-dependencies]
 dev = [
     "pytest>=8.3.4",
     "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0"
 ]
 
 [tool.pytest.ini_options]
