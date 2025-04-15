@@ -641,16 +641,32 @@ You can now use the MCP ecosystem to list and invoke WolframAlpha API tools. For
 
 ### JSON-RPC Testing
 
-For alternative testing you can interact with the MCP server via JSON-RPC. After starting the server, paste the following initialization message:
-
+For alternative testing, you can interact with the MCP server via JSON-RPC. After starting the server, paste the following initialization message:
 ```json
 {"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"claude-ai","version":"0.1.0"}},"jsonrpc":"2.0","id":0}
 ```
 
 Expected response:
-
 ```json
-{"jsonrpc": "2.0", "id": 0, "result": {"capabilities": {...}}}
+{"jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2024-11-05","capabilities":{"experimental":{},"prompts":{"listChanged":false},"resources":{"subscribe":false,"listChanged":false},"tools":{"listChanged":false}},"serverInfo":{"name":"sqlite","version":"0.1.0"}}}
+```
+
+Then paste these follow-up messages:
+```json
+{"method":"notifications/initialized","jsonrpc":"2.0"}
+{"method":"resources/list","params":{},"jsonrpc":"2.0","id":1}
+{"method":"tools/list","params":{},"jsonrpc":"2.0","id":2}
+```
+
+- **Missing OPENAPI_SPEC_URL:** Ensure it’s set to a valid OpenAPI JSON URL or local file path.
+- **Invalid Specification:** Verify the OpenAPI document is standard-compliant.
+- **Tool Filtering Issues:** Check `TOOL_WHITELIST` matches desired endpoints.
+- **Authentication Errors:** Confirm `API_KEY` and `API_AUTH_TYPE` are correct.
+- **Logging:** Set `DEBUG=true` for detailed output to stderr.
+- **Test Server:** Run directly:
+
+```bash
+uvx mcp-openapi-proxy
 ```
 
 ## License
