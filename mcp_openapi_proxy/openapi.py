@@ -9,6 +9,7 @@ import yaml
 from typing import Dict, Optional, List, Union
 from urllib.parse import unquote, quote
 from mcp import types
+from mcp_openapi_proxy.utils import normalize_tool_name
 from .logging_setup import logger
 
 def fetch_openapi_spec(url: str, retries: int = 3) -> Optional[Dict]:
@@ -86,7 +87,7 @@ def handle_auth(operation: Dict) -> Dict[str, str]:
 
 def register_functions(spec: Dict) -> List[types.Tool]:
     """Register tools from OpenAPI spec."""
-    from .utils import normalize_tool_name, is_tool_whitelisted
+    from .utils import is_tool_whitelisted
     
     tools: List[types.Tool] = []
     logger.debug("Clearing previously registered tools to allow re-registration")

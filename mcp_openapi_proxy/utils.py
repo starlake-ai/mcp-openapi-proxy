@@ -32,6 +32,9 @@ def normalize_tool_name(raw_name: str, max_length: Optional[int] = None) -> str:
                 logger.warning(f"Invalid TOOL_NAME_MAX_LENGTH env var: {max_length_env}. Ignoring.")
 
     try:
+        # Defensive: Only process if raw_name contains a space (method and path)
+        if " " not in raw_name:
+            return "unknown_tool"
         method, path = raw_name.split(" ", 1)
 
         # remove common uninformative url prefixes
