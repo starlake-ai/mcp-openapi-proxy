@@ -1,5 +1,6 @@
 import json
 from mcp_openapi_proxy.utils import build_base_url
+import pytest
 
 def test_embedded_openapi_json_valid():
     # Embedded sample valid OpenAPI spec
@@ -37,7 +38,8 @@ def test_embedded_openapi_json_valid():
     assert ("openapi" in parsed_spec or "swagger" in parsed_spec), "Spec must contain 'openapi' or 'swagger' key"
     assert "paths" in parsed_spec and parsed_spec["paths"], "Spec must contain non-empty 'paths' object"
 
-def test_build_base_url_with_placeholder():
+def test_build_base_url_with_placeholder(monkeypatch):
+    monkeypatch.delenv("SERVER_URL_OVERRIDE", raising=False)
     # Test that build_base_url handles placeholders gracefully
     spec_with_placeholder = {
         "openapi": "3.0.0",

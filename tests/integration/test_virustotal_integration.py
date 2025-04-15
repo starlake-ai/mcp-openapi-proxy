@@ -99,22 +99,32 @@ def test_virustotal_ip_report(reset_env_and_module):
     """Tests the get_/ip_addresses/{ip_address} tool for VirusTotal v3."""
     env_key = reset_env_and_module
     api_key = os.getenv("VIRUSTOTAL_API_KEY")
+    if not api_key:
+        pytest.skip("VIRUSTOTAL_API_KEY not set in .env, skipping test.")
     setup_virustotal_env(env_key, api_key, VIRUSTOTAL_OPENAPI_URL)
 
-    from mcp_openapi_proxy.server_fastmcp import call_function
+    from mcp_openapi_proxy.server_fastmcp import call_function, list_functions
     from mcp_openapi_proxy.utils import normalize_tool_name
 
-    # Updated tool name for v3 spec and parameter renamed to 'ip_address'
-    tool_name = normalize_tool_name("GET /ip_addresses/{ip_address}")
+    tools_json = list_functions(env_key=env_key)
+    tools = json.loads(tools_json)
+    # Find the tool that matches the /ip_addresses/{ip_address} endpoint
+    tool_name = None
+    for tool in tools:
+        operation_id = tool.get("operationId")
+        path = tool.get("path")
+        if (operation_id and operation_id.endswith("get_ip_report")) or (path and "/ip_addresses/{ip_address}" in path):
+            tool_name = tool["name"]
+            break
+    assert tool_name, "Could not find the correct tool for IP address report."
     parameters = {"ip_address": "8.8.8.8"}
-
-    logger.info(f"Calling tool '{tool_name}' with parameters: {parameters}")
     result_json = call_function(function_name=tool_name, parameters=parameters, env_key=env_key)
     logger.info(f"Result from {tool_name}: {result_json}")
-
     result = json.loads(result_json)
     assert isinstance(result, dict), f"Expected dict response, got {type(result)}"
     # In v3, we expect a 'data' property instead of 'response_code'
+    if "data" not in result:
+        print(f"DEBUG: VirusTotal response for {parameters['ip_address']}: {result_json}")
     assert "data" in result, "Response missing 'data' key"
     # Optionally check that data contains attributes field
     assert "attributes" in result["data"], "Report data missing 'attributes'"
@@ -123,6 +133,8 @@ def test_virustotal_file_report(reset_env_and_module):
     """Tests the get_/file/report tool with a known hash."""
     env_key = reset_env_and_module
     api_key = os.getenv("VIRUSTOTAL_API_KEY")
+    if not api_key:
+        pytest.skip("VIRUSTOTAL_API_KEY not set in .env, skipping test.")
     setup_virustotal_env(env_key, api_key, VIRUSTOTAL_OPENAPI_URL)
 
     from mcp_openapi_proxy.server_fastmcp import call_function

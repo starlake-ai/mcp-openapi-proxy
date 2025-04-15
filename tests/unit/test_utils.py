@@ -39,11 +39,13 @@ def test_detect_response_type_text():
     assert content.text == "plain text"
     assert "non-JSON" in msg
 
-def test_build_base_url_servers():
+def test_build_base_url_servers(monkeypatch):
+    monkeypatch.delenv("SERVER_URL_OVERRIDE", raising=False)
     spec = {"servers": [{"url": "https://api.example.com/v1"}]}
     assert build_base_url(spec) == "https://api.example.com/v1"
 
-def test_build_base_url_host():
+def test_build_base_url_host(monkeypatch):
+    monkeypatch.delenv("SERVER_URL_OVERRIDE", raising=False)
     spec = {"host": "api.example.com", "schemes": ["https"], "basePath": "/v1"}
     assert build_base_url(spec) == "https://api.example.com/v1"
 
@@ -221,6 +223,7 @@ def test_build_base_url_override_invalid(monkeypatch):
     monkeypatch.delenv("SERVER_URL_OVERRIDE", raising=False)
 
 def test_build_base_url_no_servers(monkeypatch):
+    monkeypatch.delenv("SERVER_URL_OVERRIDE", raising=False)
     from mcp_openapi_proxy.utils import build_base_url
     url = build_base_url({})
     assert url is None

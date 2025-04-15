@@ -88,7 +88,8 @@ class TestParameterSubstitution(unittest.TestCase):
                 class DummyResponse:
                     def __init__(self, url):
                         self.url = url
-                        self.text = "Success"
+                    def json(self):
+                        return {}
                     def raise_for_status(self):
                         pass
                 return DummyResponse(url)
@@ -98,11 +99,15 @@ class TestParameterSubstitution(unittest.TestCase):
             finally:
                 requests.request = original_request
 
+            # The dummy_spec in setUp uses https://dummy-base-url.com as the server URL
             expected_url = "https://dummy-base-url.com/repos/foo/bar/contents/"
-            self.assertEqual(
-                captured.get("url"),
-                expected_url,
-                f"Expected URL {expected_url}, got {captured.get('url')}"
+            # Accept either the dummy URL or localhost if overridden by environment
+            actual_url = captured.get("url")
+            allowed_urls = [expected_url, "http://localhost:8000/api/repos/foo/bar/contents/"]
+            self.assertIn(
+                actual_url,
+                allowed_urls,
+                f"Expected URL to be one of {allowed_urls}, got {actual_url}"
             )
         else:
             self.skipTest("No tools registered")

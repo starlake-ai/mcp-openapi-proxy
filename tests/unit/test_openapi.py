@@ -33,12 +33,14 @@ def test_fetch_openapi_spec_yaml_decode_error(monkeypatch, tmp_path):
     assert spec is None
     monkeypatch.delenv("OPENAPI_SPEC_FORMAT", raising=False)
 
-def test_build_base_url_servers():
+def test_build_base_url_servers(monkeypatch):
+    monkeypatch.delenv("SERVER_URL_OVERRIDE", raising=False)
     spec = {"servers": [{"url": "https://api.example.com"}]}
     url = openapi.build_base_url(spec)
     assert url == "https://api.example.com"
 
-def test_build_base_url_host_schemes():
+def test_build_base_url_host_schemes(monkeypatch):
+    monkeypatch.delenv("SERVER_URL_OVERRIDE", raising=False)
     spec = {"host": "api.example.com", "schemes": ["https"], "basePath": "/v1"}
     url = openapi.build_base_url(spec)
     assert url == "https://api.example.com/v1"
