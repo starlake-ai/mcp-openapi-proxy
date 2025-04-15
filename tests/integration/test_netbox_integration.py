@@ -6,9 +6,11 @@ import requests
 class TestNetboxIntegration:
     @classmethod
     def setup_class(cls):
-        # Set up environment to use the NetBox config
+        # Only run tests if NETBOX_API_KEY is set
+        cls.token = os.environ.get("NETBOX_API_KEY")
+        if not cls.token:
+            pytest.skip("No NETBOX_API_KEY set in environment.")
         cls.base_url = os.environ.get("SERVER_URL_OVERRIDE", "http://localhost:8000/api")
-        cls.token = os.environ["NETBOX_API_KEY"]
         cls.headers = {"Authorization": f"Token {cls.token}"}
 
     def test_devices_list(self):
