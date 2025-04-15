@@ -55,8 +55,13 @@ def normalize_tool_name(raw_name: str, max_length: Optional[int] = None) -> str:
         # Remove repeated underscores
         tool_name = re.sub(r"_+", "_", tool_name)
 
+        # Apply TOOL_NAME_PREFIX if set
+        tool_name_prefix = os.getenv("TOOL_NAME_PREFIX", "")
+        if tool_name_prefix:
+            tool_name = f"{tool_name_prefix}{tool_name}"
+
         if effective_max_length is not None and effective_max_length > 0:
-            tool_name = tool_name[:max_length]
+            tool_name = tool_name[:effective_max_length]
 
         return tool_name
     except Exception:

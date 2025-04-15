@@ -96,3 +96,19 @@ def test_strip_parameters_no_param():
     params = {"channel": "test"}
     result = strip_parameters(params)
     assert result == {"channel": "test"}
+
+def test_tool_name_prefix(monkeypatch):
+    """Test that TOOL_NAME_PREFIX env var is respected when generating tool names."""
+    import os
+    from mcp_openapi_proxy.utils import normalize_tool_name
+
+    # Set prefix in environment
+    monkeypatch.setenv("TOOL_NAME_PREFIX", "otrs_")
+
+    # Use correct raw_name format: "METHOD /path"
+    raw_name = "GET /users/list"
+    tool_name = normalize_tool_name(raw_name)
+    prefix = os.getenv("TOOL_NAME_PREFIX", "")
+    assert tool_name.startswith(prefix), f"Tool name '{tool_name}' does not start with prefix '{prefix}'"
+    # Also check the rest of the name
+    assert tool_name == "otrs_get_users_list"
