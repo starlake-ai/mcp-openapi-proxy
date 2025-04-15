@@ -24,6 +24,7 @@
   - [APIs.guru Example](#apisguru-example)
   - [NetBox Example](#netbox-example)
   - [Box API Example](#box-api-example)
+  - [WolframAlpha API Example](#wolframalpha-api-example)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
 
@@ -601,6 +602,40 @@ You can integrate the Box Platform API using your own developer token for authen
   ```
 
 You can now use the MCP ecosystem to list and invoke Box API tools. For integration tests, see `tests/integration/test_box_integration.py`.
+
+### WolframAlpha API Example
+
+You can integrate the WolframAlpha API using your own App ID for authenticated access. This example demonstrates how to expose WolframAlpha API endpoints as MCP tools.
+
+#### Example config: `examples/wolframalpha-claude_desktop_config.json`
+```json
+{
+  "mcpServers": {
+    "wolframalpha": {
+      "command": "uvx",
+      "args": [
+        "mcp-openapi-proxy"
+      ],
+      "env": {
+        "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/APIs-guru/openapi-directory/refs/heads/main/APIs/wolframalpha.com/v0.1/openapi.yaml",
+        "API_KEY": "${WOLFRAM_LLM_APP_ID}"
+      }
+    }
+  }
+}
+```
+
+- Set your WolframAlpha App ID as an environment variable in `.env`:
+  ```
+  WOLFRAM_LLM_APP_ID=your_wolfram_app_id
+  ```
+
+- Or run the proxy with a one-liner:
+  ```bash
+  OPENAPI_SPEC_URL="https://raw.githubusercontent.com/APIs-guru/openapi-directory/refs/heads/main/APIs/wolframalpha.com/v0.1/openapi.yaml" API_KEY="$WOLFRAM_LLM_APP_ID" uvx mcp-openapi-proxy
+  ```
+
+You can now use the MCP ecosystem to list and invoke WolframAlpha API tools. For integration tests, see `tests/integration/test_wolframalpha_integration.py`.
 
 ## Troubleshooting
 
