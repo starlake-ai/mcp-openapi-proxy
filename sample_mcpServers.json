@@ -1,0 +1,118 @@
+{
+  "mcpServers": {
+    "mcp-openapi-proxy": {
+      "command": "uvx",
+      "args": ["mcp-openapi-proxy"],
+      "env": {
+        "OPENAPI_SPEC_URL": "${OPENAPI_SPEC_URL}",
+        "API_KEY": "${API_OPENAPI_KEY}"
+      }
+    },
+    "glama": {
+      "command": "uvx",
+      "args": ["mcp-openapi-proxy"],
+      "env": {
+        "OPENAPI_SPEC_URL": "https://glama.ai/api/mcp/openapi.json"
+      }
+    },
+    "flyio": {
+      "command": "uvx",
+      "args": ["mcp-openapi-proxy"],
+      "env": {
+        "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/abhiaagarwal/peristera/refs/heads/main/fly-machines-gen/fixed_spec.json",
+        "API_KEY": "<your_flyio_token_here>"
+      }
+    },
+    "render": {
+      "command": "uvx",
+      "args": ["mcp-openapi-proxy"],
+      "env": {
+        "OPENAPI_SPEC_URL": "https://api-docs.render.com/openapi/6140fb3daeae351056086186",
+        "TOOL_WHITELIST": "/services,/maintenance",
+        "API_KEY": "your_render_token_here"
+      }
+    },
+    "slack": {
+      "command": "uvx",
+      "args": ["mcp-openapi-proxy"],
+      "env": {
+        "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/slackapi/slack-api-specs/master/web-api/slack_web_openapi_v2.json",
+        "TOOL_WHITELIST": "/chat,/bots,/conversations,/reminders,/files,/users",
+        "API_KEY": "<your_slack_bot_token, starts with xoxb>",
+        "STRIP_PARAM": "token",
+        "TOOL_NAME_PREFIX": "slack_"
+      }
+    },
+    "getzep": {
+      "command": "uvx",
+      "args": ["mcp-openapi-proxy"],
+      "env": {
+        "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/getzep.swagger.json",
+        "TOOL_WHITELIST": "/sessions",
+        "API_KEY": "<your_getzep_api_key>",
+        "API_AUTH_TYPE": "Api-Key",
+        "TOOL_NAME_PREFIX": "zep_"
+      }
+    },
+    "virustotal": {
+      "command": "uvx",
+      "args": ["mcp-openapi-proxy"],
+      "env": {
+        "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/matthewhand/mcp-openapi-proxy/refs/heads/main/examples/virustotal.openapi.yml",
+        "EXTRA_HEADERS": "x-apikey: ${VIRUSTOTAL_API_KEY}",
+        "OPENAPI_SPEC_FORMAT": "yaml"
+      }
+    },
+    "notion": {
+      "command": "uvx",
+      "args": ["mcp-openapi-proxy"],
+      "env": {
+        "API_KEY": "ntn_<your_key>",
+        "OPENAPI_SPEC_URL": "https://storage.googleapis.com/versori-assets/public-specs/20240214/NotionAPI.yml",
+        "SERVER_URL_OVERRIDE": "https://api.notion.com",
+        "EXTRA_HEADERS": "Notion-Version: 2022-06-28"
+      }
+    },
+    "asana": {
+      "command": "uvx",
+      "args": ["mcp-openapi-proxy"],
+      "env": {
+        "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/Asana/openapi/refs/heads/master/defs/asana_oas.yaml",
+        "SERVER_URL_OVERRIDE": "https://app.asana.com/api/1.0",
+        "TOOL_WHITELIST": "/workspaces,/tasks,/projects,/users",
+        "API_KEY": "${ASANA_API_KEY}"
+      }
+    },
+    "apisguru": {
+      "command": "uvx",
+      "args": ["mcp-openapi-proxy"],
+      "env": {
+        "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/APIs-guru/openapi-directory/refs/heads/main/APIs/apis.guru/2.2.0/openapi.yaml"
+      }
+    },
+    "netbox": {
+      "command": "uvx",
+      "args": ["mcp-openapi-proxy"],
+      "env": {
+        "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/APIs-guru/openapi-directory/refs/heads/main/APIs/netbox.dev/3.4/openapi.yaml",
+        "API_KEY": "${NETBOX_API_KEY}"
+      }
+    },
+    "box": {
+      "command": "uvx",
+      "args": ["mcp-openapi-proxy"],
+      "env": {
+        "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/APIs-guru/openapi-directory/refs/heads/main/APIs/box.com/2.0.0/openapi.yaml",
+        "API_KEY": "${BOX_API_KEY}"
+      }
+    },
+    "wolframalpha": {
+      "command": "uvx",
+      "args": ["mcp-openapi-proxy"],
+      "env": {
+        "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/APIs-guru/openapi-directory/refs/heads/main/APIs/wolframalpha.com/v0.1/openapi.yaml",
+        "API_KEY": "${WOLFRAM_LLM_APP_ID}"
+      }
+    }
+  }
+}
