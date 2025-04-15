@@ -27,13 +27,18 @@ class TestMcpTools(unittest.TestCase):
         server_fastmcp.fetch_openapi_spec = lambda url: DUMMY_SPEC
         self.original_lowlevel_fetch = getattr(server_lowlevel, "fetch_openapi_spec", None)
         server_lowlevel.fetch_openapi_spec = lambda url: DUMMY_SPEC
-        server_lowlevel.prompts = [
+        # Patch both server_lowlevel and handlers prompts
+        import mcp_openapi_proxy.handlers as handlers
+        handlers.prompts = server_lowlevel.prompts = [
             types.Prompt(
                 name="summarize_spec",
                 description="Dummy prompt",
                 arguments=[],
-                messages=lambda args: [ # type: ignore
-                    {"role": "assistant", "content": {"type": "text", "text": "This OpenAPI spec defines an API’s endpoints, parameters, and responses, making it a blueprint for devs."}}
+                messages=lambda args: [
+                    types.PromptMessage(
+                        role="assistant",
+                        content=types.TextContent(type="text", text="This OpenAPI spec defines an API’s endpoints, parameters, and responses, making it a blueprint for devs.")
+                    )
                 ]
             )
         ]
@@ -78,15 +83,17 @@ class TestMcpTools(unittest.TestCase):
         prompt_names = [prompt.name for prompt in result.prompts]
         self.assertIn("summarize_spec", prompt_names)
 
-    @pytest.mark.skip(reason="Failing due to prompt response mismatch, revisit later")
     def test_get_prompt_server_lowlevel(self):
+        from mcp_openapi_proxy import handlers
         params = SimpleNamespace(name="summarize_spec", arguments={})  # type: ignore
         request = SimpleNamespace(params=params)  # type: ignore
-        result = asyncio.run(server_lowlevel.get_prompt(request))  # type: ignore
+        # Call the handlers.get_prompt directly to ensure the patched prompts are used
+        result = asyncio.run(handlers.get_prompt(request))  # type: ignore
         self.assertTrue(hasattr(result, "messages"), "Result has no attribute 'messages'")
         self.assertIsInstance(result.messages, list)
         msg = result.messages[0]
-        content_text = msg.content.get("text", "") if isinstance(msg.content, dict) else ""
+        # handlers.get_prompt returns a types.TextContent, not dict
+        content_text = msg.content.text if hasattr(msg.content, "text") else ""
         self.assertIn("blueprint", content_text, f"Expected 'blueprint' in message text, got: {content_text}")
 
     def test_get_additional_headers(self):

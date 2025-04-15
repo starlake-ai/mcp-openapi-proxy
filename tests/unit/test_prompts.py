@@ -23,7 +23,6 @@ def test_lowlevel_get_prompt_valid(mock_env):
     result = asyncio.run(get_prompt(request))
     assert "blueprint" in result.messages[0].content.text, "Expected 'blueprint' in prompt response"
 
-@pytest.mark.skip(reason="FastMCP tool list issue, revisit later")
 def test_fastmcp_list_prompts(mock_env):
     with patch('mcp_openapi_proxy.utils.fetch_openapi_spec', return_value={"paths": {}}):
         tools_json = list_functions(env_key="OPENAPI_SPEC_URL")

@@ -5,7 +5,7 @@ import pytest
 from unittest.mock import patch
 from mcp_openapi_proxy.openapi import register_functions
 from mcp_openapi_proxy.server_lowlevel import dispatcher_handler
-from mcp_openapi_proxy.server_fastmcp import list_functions, call_function
+from mcp_openapi_proxy.server_fastmcp import list_functions
 import requests
 from types import SimpleNamespace
 
@@ -30,6 +30,7 @@ DUMMY_SPEC = {
 }
 
 def dummy_fetch(*args, **kwargs):
+    print("DEBUG: dummy_fetch called with", args, kwargs)
     return DUMMY_SPEC
 
 @pytest.fixture
@@ -105,21 +106,22 @@ def test_fastmcp_uri_substitution(mock_env):
          patch("mcp_openapi_proxy.server_lowlevel.fetch_openapi_spec", new=lambda *args, **kwargs: DUMMY_SPEC):
         tools_json = list_functions(env_key="OPENAPI_SPEC_URL")
         tools_list = json.loads(tools_json)
-        assert any(t["name"] == "get_tasks_id" for t in tools_list), "get_tasks_id not found"
-        tool = next(t for t in tools_list if t["name"] == "get_tasks_id")
+        assert any(t["name"] == "get_users_by_user_id_tasks" for t in tools_list), "get_users_by_user_id_tasks not found"
+        tool = next(t for t in tools_list if t["name"] == "get_users_by_user_id_tasks")
         assert "user_id" in tool["inputSchema"]["properties"], "user_id not in inputSchema"
         assert "user_id" in tool["inputSchema"]["required"], "user_id not required"
 
-@pytest.mark.skip(reason="fastmcp mode broken")
 def test_fastmcp_call_function_substitution(mock_env, mock_requests):
     import mcp_openapi_proxy.server_lowlevel as lowlevel
+    import mcp_openapi_proxy.openapi as openapi_mod
+    from mcp_openapi_proxy import server_fastmcp
+    # Patch fetch_openapi_spec in both fastmcp and openapi modules
     original_handler = lowlevel.dispatcher_handler
-    from mcp_openapi_proxy import server_fastmcp, utils
-    with patch("mcp_openapi_proxy.utils.fetch_openapi_spec", dummy_fetch), \
-         patch("mcp_openapi_proxy.server_fastmcp.fetch_openapi_spec", dummy_fetch), \
-         patch("mcp_openapi_proxy.server_lowlevel.fetch_openapi_spec", dummy_fetch):
+    with patch.object(server_fastmcp, "fetch_openapi_spec", dummy_fetch):
+        from mcp_openapi_proxy.server_fastmcp import call_function
         with patch('mcp_openapi_proxy.server_lowlevel.dispatcher_handler',
                    side_effect=lambda req: safe_dispatcher_handler(original_handler, req)):
-            result = call_function(function_name="get_tasks_id", parameters={"user_id": "123"}, env_key="OPENAPI_SPEC_URL")
+            result = call_function(function_name="get_users_by_user_id_tasks", parameters={"user_id": "123"}, env_key="OPENAPI_SPEC_URL")
+            print(f"DEBUG: call_function result: {result}")
             expected = "Mocked response for http://dummy.com/users/123/tasks"
-            assert result == expected, "URI substitution failed"
+            assert result == expected, f"URI substitution failed (got: {result})"

@@ -38,10 +38,15 @@ class TestInputSchemaGeneration(unittest.TestCase):
 
 
     def tearDown(self):
-        # Restore the original TOOL_WHITELIST if it was set
         import os
+        import mcp_openapi_proxy.utils as utils
+        # Restore TOOL_WHITELIST
         if self.old_tool_whitelist is not None:
             os.environ["TOOL_WHITELIST"] = self.old_tool_whitelist
+        else:
+            os.environ.pop("TOOL_WHITELIST", None)
+        # Restore is_tool_whitelisted
+        utils.is_tool_whitelisted = self.old_is_tool_whitelisted
 
     def test_input_schema_contents(self):
         # Ensure that one tool is registered for the endpoint using the returned tools list directly
