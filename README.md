@@ -21,6 +21,7 @@
   - [Virustotal Example](#virustotal-example)
   - [Notion Example](#notion-example)
   - [Asana Example](#asana-example)
+  - [APIs.guru Example](#apisguru-example)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
 
@@ -483,6 +484,48 @@ ASANA_API_KEY="<your_asana_api_key>" OPENAPI_SPEC_URL="https://raw.githubusercon
 ```
 
 Use MCP tools (via JSON-RPC messages or client libraries) to interact with the Asana endpoints.
+
+### APIs.guru Example
+
+APIs.guru provides a directory of OpenAPI definitions for thousands of public APIs. This example shows how to use mcp-openapi-proxy to expose the APIs.guru directory as MCP tools.
+
+#### 1. Verify the OpenAPI Specification
+
+Retrieve the APIs.guru OpenAPI specification:
+
+```bash
+curl https://raw.githubusercontent.com/APIs-guru/openapi-directory/refs/heads/main/APIs/apis.guru/2.2.0/openapi.yaml
+```
+
+Ensure the response is a valid OpenAPI YAML document.
+
+#### 2. Configure mcp-openapi-proxy for APIs.guru
+
+Add the following configuration to your MCP ecosystem settings:
+
+```json
+{
+    "mcpServers": {
+        "apisguru": {
+            "command": "uvx",
+            "args": ["mcp-openapi-proxy"],
+            "env": {
+                "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/APIs-guru/openapi-directory/refs/heads/main/APIs/apis.guru/2.2.0/openapi.yaml"
+            }
+        }
+    }
+}
+```
+
+#### 3. Testing
+
+Start the service with:
+
+```bash
+OPENAPI_SPEC_URL="https://raw.githubusercontent.com/APIs-guru/openapi-directory/refs/heads/main/APIs/apis.guru/2.2.0/openapi.yaml" uvx mcp-openapi-proxy
+```
+
+You can then use the MCP ecosystem to list and invoke tools such as `listAPIs`, `getMetrics`, and `getProviders` that are defined in the APIs.guru directory.
 
 ## Troubleshooting
 
