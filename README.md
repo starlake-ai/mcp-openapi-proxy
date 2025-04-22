@@ -605,6 +605,8 @@ You can now use the MCP ecosystem to list and invoke Box API tools. For integrat
 
 ### WolframAlpha API Example
 
+![image](https://github.com/user-attachments/assets/6a634d63-5734-4275-8876-6bacb8beabcc)
+
 You can integrate the WolframAlpha API using your own App ID for authenticated access. This example demonstrates how to expose WolframAlpha API endpoints as MCP tools.
 
 #### Example config: `examples/wolframalpha-claude_desktop_config.json`
