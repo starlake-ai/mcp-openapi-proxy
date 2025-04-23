@@ -585,8 +585,9 @@ You can integrate the Box Platform API using your own developer token for authen
 
 #### Example config: `examples/box-claude_desktop_config.json`
 ```json
-{
+"env": {
   "OPENAPI_SPEC_URL": "https://raw.githubusercontent.com/APIs-guru/openapi-directory/refs/heads/main/APIs/box.com/2.0.0/openapi.yaml",
+  "TOOL_WHITELIST": "/folders/{folder_id}/items,/files/{file_id},/search,/recent_items",
   "API_KEY": "${BOX_API_KEY}"
 }
 ```
@@ -602,6 +603,8 @@ You can integrate the Box Platform API using your own developer token for authen
   ```
 
 You can now use the MCP ecosystem to list and invoke Box API tools. For integration tests, see `tests/integration/test_box_integration.py`.
+
+Note: developer api keys for free tier box users are limited to 60 minutes :(.  
 
 ### WolframAlpha API Example
 
