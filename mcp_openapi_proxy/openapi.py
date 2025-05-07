@@ -157,8 +157,10 @@ def register_functions(spec: Dict) -> List[types.Tool]:
             logger.debug(f"Skipping empty or invalid path item for {path}")
             continue
         for method, operation in path_item.items():
+            logger.debug(f"method: {method}, operation: {operation}")
+            tags = operation.get('tags', [])
             # Check if method is a valid HTTP verb and operation is a dictionary
-            if method.lower() not in ['get', 'post', 'put', 'delete', 'patch', 'options', 'head', 'trace'] or not isinstance(operation, dict):
+            if 'mcp' not in tags or method.lower() not in ['get', 'post', 'put', 'delete', 'patch', 'options', 'head', 'trace'] or not isinstance(operation, dict):
                 # logger.debug(f"Skipping non-operation entry or unsupported method '{method}' for path '{path}'")
                 continue
             try:
